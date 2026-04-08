@@ -2,10 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Finance Tracker</title>
-  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
   <meta name="apple-mobile-web-app-title" content="Finance"/>
@@ -16,7 +13,11 @@
 </head>
 <body>
   <div id="root"></div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script>
+var React = window.React;
+var ReactDOM = window.ReactDOM;
 const {
   useState,
   useRef,
@@ -828,6 +829,60 @@ function App() {
     .loading-box{background:#1a1a22;border:1px solid #2a2a38;border-radius:16px;padding:48px 56px;text-align:center;}
     .spinner{width:40px;height:40px;border:3px solid #2a2a38;border-top-color:#c9a84c;border-radius:50%;animation:spin .9s linear infinite;margin:0 auto 20px;}
     @keyframes spin{to{transform:rotate(360deg);}}
+
+    /* ── iPhone / Mobile optimizations ─────────────────────────── */
+    /* Safe area padding for notch + home indicator */
+    .app-root { padding-top: env(safe-area-inset-top); }
+    .bottom-nav { padding-bottom: env(safe-area-inset-bottom); }
+    .header-bar { padding-left: max(24px, env(safe-area-inset-left)); padding-right: max(24px, env(safe-area-inset-right)); }
+    .main-content { padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); }
+
+    /* Prevent double-tap zoom on buttons */
+    button, input, select { touch-action: manipulation; }
+
+    /* Inputs don't zoom on iOS (must be >= 16px font) */
+    .modal input, .modal select { font-size: 16px !important; }
+
+    /* Bottom nav bar for mobile */
+    .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: #13131a; border-top: 1px solid #2a2a38; display: flex; z-index: 50; }
+    .bottom-nav { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+    .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 4px 6px; cursor: pointer; border: none; background: none; color: #555; transition: color .2s; font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: .05em; text-transform: uppercase; min-height: 56px; justify-content: center; }
+    .nav-item.active { color: #c9a84c; }
+    .nav-item svg { width: 22px; height: 22px; }
+    .nav-icon { font-size: 20px; line-height: 1; }
+
+    /* Scrollable main area above bottom nav */
+    .scrollable-main { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+
+    /* Larger tap targets for row actions */
+    .icon-btn { min-width: 36px; min-height: 36px; display: flex; align-items: center; justify-content: center; }
+    .checkbox { min-width: 22px; min-height: 22px; width: 22px; height: 22px; }
+
+    /* Card padding tighter on small screens */
+    @media (max-width: 430px) {
+      .card { padding: 16px; }
+      .stat-value-lg { font-size: 22px !important; }
+      .header-bar { padding: 14px 16px; padding-top: max(14px, env(safe-area-inset-top)); }
+      .save-bar { padding: 8px 16px; }
+    }
+
+    /* Hide save-bar on mobile — use header buttons instead */
+    @media (max-width: 430px) {
+      .save-bar { display: none; }
+      .mobile-only { display: flex !important; }
+      .desktop-nav { display: none !important; }
+    }
+    @media (min-width: 431px) {
+      .bottom-nav { display: none !important; }
+      .mobile-only { display: none !important; }
+      .desktop-nav { display: flex !important; }
+    }
+
+    /* Smooth scroll */
+    html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+
+    /* Prevent text selection flash on tap */
+    .nav-item, .tab-btn, .add-btn, .btn-save, .btn-cancel { -webkit-tap-highlight-color: transparent; user-select: none; }
   `;
   if (!ready) return /*#__PURE__*/React.createElement("div", {
     style: {
@@ -849,13 +904,16 @@ function App() {
     }
   }, "Loading your data\u2026")));
   return /*#__PURE__*/React.createElement("div", {
+    className: "app-root",
     style: {
       minHeight: "100vh",
       background: "#0d0d10",
       color: "#f0ede6",
-      fontFamily: "'DM Serif Display',Georgia,serif"
+      fontFamily: "'DM Serif Display',Georgia,serif",
+      paddingBottom: "80px"
     }
   }, /*#__PURE__*/React.createElement("style", null, css), /*#__PURE__*/React.createElement("div", {
+    className: "header-bar",
     style: {
       borderBottom: "1px solid #1e1e28",
       padding: "20px 24px",
@@ -963,14 +1021,14 @@ function App() {
       setImportStep("pick");
       setImportError("");
     }
-  }, "\u2191 Import CSV"), /*#__PURE__*/React.createElement("button", {
+  }, "\u2191 Import"), /*#__PURE__*/React.createElement("button", {
     className: "copy-btn",
     style: {
       color: "#9a8aff",
       borderColor: "#3a2a6a"
     },
     onClick: () => setShowSaveCode(true)
-  }, "\uD83D\uDCBE Save Code"), /*#__PURE__*/React.createElement("button", {
+  }, "\uD83D\uDCBE Save"), /*#__PURE__*/React.createElement("button", {
     className: "copy-btn",
     style: {
       color: "#9a8aff",
@@ -980,7 +1038,7 @@ function App() {
       setShowLoadCode(true);
       setLoadCodeErr("");
     }
-  }, "\uD83D\uDCC2 Load Code"), (monthData.income.length > 0 || monthData.bills.length > 0) && /*#__PURE__*/React.createElement("button", {
+  }, "\uD83D\uDCC2 Load"), (monthData.income.length > 0 || monthData.bills.length > 0) && /*#__PURE__*/React.createElement("button", {
     className: "copy-btn",
     onClick: () => {
       setCopyTargets([]);
@@ -1079,16 +1137,50 @@ function App() {
       marginLeft: "auto"
     }
   }, Object.keys(allData).length, " month", Object.keys(allData).length !== 1 ? "s" : "", " saved")), /*#__PURE__*/React.createElement("div", {
+    className: "desktop-nav",
     style: {
       padding: "16px 24px 0",
       display: "flex",
-      gap: 4
+      gap: 4,
+      flexWrap: "wrap"
     }
   }, ["overview", "income", "bills", "savings", "fixed bills"].map(t => /*#__PURE__*/React.createElement("button", {
     key: t,
     className: `tab-btn ${activeTab === t ? "active" : ""}`,
     onClick: () => setActiveTab(t)
   }, t))), /*#__PURE__*/React.createElement("div", {
+    className: "bottom-nav mobile-only",
+    style: {
+      display: "none"
+    }
+  }, [{
+    id: "overview",
+    icon: "📊",
+    label: "Overview"
+  }, {
+    id: "income",
+    icon: "💰",
+    label: "Income"
+  }, {
+    id: "bills",
+    icon: "📋",
+    label: "Bills"
+  }, {
+    id: "savings",
+    icon: "🏦",
+    label: "Savings"
+  }, {
+    id: "fixed bills",
+    icon: "🔁",
+    label: "Fixed"
+  }].map(t => /*#__PURE__*/React.createElement("button", {
+    key: t.id,
+    className: `nav-item ${activeTab === t.id ? "active" : ""}`,
+    onClick: () => setActiveTab(t.id)
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "nav-icon"
+  }, t.icon), /*#__PURE__*/React.createElement("span", null, t.label)))), /*#__PURE__*/React.createElement("div", {
+    className: "main-content scrollable-main",
     style: {
       padding: "20px 24px",
       maxWidth: 860,

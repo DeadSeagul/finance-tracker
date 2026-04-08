@@ -4,69 +4,91 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Finance Tracker</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <style>body{margin:0;background:#0d0d10;}*{box-sizing:border-box;}</style>
 </head>
 <body>
   <div id="root"></div>
-  <script type="text/babel">
-const { useState, useRef, useEffect } = React;
-
-const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  <script>
+const {
+  useState,
+  useRef,
+  useEffect
+} = React;
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const today = new Date();
-
 function formatCurrency(n) {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n || 0);
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD"
+  }).format(n || 0);
 }
-function getKey(profile, year, month) { return `ft:${profile}:${year}-${month}`; }
-function getProfilePrefix(profile) { return `ft:${profile}:`; }
+function getKey(profile, year, month) {
+  return `ft:${profile}:${year}-${month}`;
+}
+function getProfilePrefix(profile) {
+  return `ft:${profile}:`;
+}
 
 // ── Storage helpers (localStorage — works everywhere) ────────────────────────
 async function storeMonth(key, data) {
-  try { localStorage.setItem(key, JSON.stringify(data)); } catch {}
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch {}
 }
 async function loadMonth(key) {
   try {
     const r = localStorage.getItem(key);
     return r ? JSON.parse(r) : null;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 async function listMonthKeys(prefix) {
   try {
     return Object.keys(localStorage).filter(k => k.startsWith(prefix));
-  } catch { return []; }
+  } catch {
+    return [];
+  }
 }
 async function storeProfileNames(names) {
-  try { localStorage.setItem("ft:profiles", JSON.stringify(names)); } catch {}
+  try {
+    localStorage.setItem("ft:profiles", JSON.stringify(names));
+  } catch {}
 }
 async function loadProfileNames() {
   try {
     const r = localStorage.getItem("ft:profiles");
-    return r ? JSON.parse(r) : ["Person 1","Person 2"];
-  } catch { return ["Person 1","Person 2"]; }
+    return r ? JSON.parse(r) : ["Person 1", "Person 2"];
+  } catch {
+    return ["Person 1", "Person 2"];
+  }
 }
 
 // ── CSV Parser ────────────────────────────────────────────────────────────────
 function splitCSVLine(line) {
-  const result = []; let cur = "", inQ = false;
+  const result = [];
+  let cur = "",
+    inQ = false;
   for (const c of line) {
-    if (c === '"') inQ = !inQ;
-    else if (c === ',' && !inQ) { result.push(cur); cur = ""; }
-    else cur += c;
+    if (c === '"') inQ = !inQ;else if (c === ',' && !inQ) {
+      result.push(cur);
+      cur = "";
+    } else cur += c;
   }
-  result.push(cur); return result;
+  result.push(cur);
+  return result;
 }
 function parseDate(str) {
   if (!str) return null;
-  const s = str.trim().replace(/['"]/g,"");
+  const s = str.trim().replace(/['"]/g, "");
   let d = new Date(s);
   if (!isNaN(d.getTime())) return d;
   const m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
   if (m) {
-    const y = m[3].length===2 ? 2000+parseInt(m[3]) : parseInt(m[3]);
-    d = new Date(y, parseInt(m[1])-1, parseInt(m[2]));
+    const y = m[3].length === 2 ? 2000 + parseInt(m[3]) : parseInt(m[3]);
+    d = new Date(y, parseInt(m[1]) - 1, parseInt(m[2]));
     if (!isNaN(d.getTime())) return d;
   }
   return null;
@@ -75,135 +97,177 @@ function parseCSV(text) {
   const lines = text.trim().split(/\r?\n/);
   if (lines.length < 2) return [];
   let hi = 0;
-  for (let i = 0; i < Math.min(5,lines.length); i++)
-    if (/date|description|amount|debit|credit|memo/i.test(lines[i])) { hi=i; break; }
-  const headers = splitCSVLine(lines[hi]).map(h=>h.toLowerCase().trim().replace(/['"]/g,""));
+  for (let i = 0; i < Math.min(5, lines.length); i++) if (/date|description|amount|debit|credit|memo/i.test(lines[i])) {
+    hi = i;
+    break;
+  }
+  const headers = splitCSVLine(lines[hi]).map(h => h.toLowerCase().trim().replace(/['"]/g, ""));
   const rows = [];
-  for (let i=hi+1; i<lines.length; i++) {
+  for (let i = hi + 1; i < lines.length; i++) {
     if (!lines[i].trim()) continue;
     const cols = splitCSVLine(lines[i]);
-    const obj = {}; headers.forEach((h,j)=>{ obj[h]=(cols[j]||"").trim().replace(/^"|"$/g,""); });
+    const obj = {};
+    headers.forEach((h, j) => {
+      obj[h] = (cols[j] || "").trim().replace(/^"|"$/g, "");
+    });
     rows.push(obj);
   }
-  const dc = headers.find(h=>/^(date|transaction.?date|posted.?date)$/i.test(h))||headers.find(h=>/date/i.test(h));
-  const ec = headers.find(h=>/^(description|memo|name|payee|narrative)$/i.test(h))||headers.find(h=>/desc|memo|name/i.test(h));
-  const ac = headers.find(h=>/^(amount|transaction.?amount)$/i.test(h));
-  const dbc = headers.find(h=>/^(debit|withdrawal|dr)$/i.test(h));
-  const crc = headers.find(h=>/^(credit|deposit|cr)$/i.test(h));
-  return rows.map(row=>{
+  const dc = headers.find(h => /^(date|transaction.?date|posted.?date)$/i.test(h)) || headers.find(h => /date/i.test(h));
+  const ec = headers.find(h => /^(description|memo|name|payee|narrative)$/i.test(h)) || headers.find(h => /desc|memo|name/i.test(h));
+  const ac = headers.find(h => /^(amount|transaction.?amount)$/i.test(h));
+  const dbc = headers.find(h => /^(debit|withdrawal|dr)$/i.test(h));
+  const crc = headers.find(h => /^(credit|deposit|cr)$/i.test(h));
+  return rows.map(row => {
     const date = dc ? parseDate(row[dc]) : null;
-    const desc = (ec ? row[ec] : Object.values(row).find(v=>v&&isNaN(parseFloat(v.replace(/[$,]/g,"")))) || "Unknown").trim();
+    const desc = (ec ? row[ec] : Object.values(row).find(v => v && isNaN(parseFloat(v.replace(/[$,]/g, "")))) || "Unknown").trim();
     let amount = 0;
-    if (ac) amount = parseFloat(row[ac].replace(/[$, ]/g,""))||0;
-    else if (dbc||crc) { const d=parseFloat((row[dbc]||"0").replace(/[$, ]/g,""))||0; const c=parseFloat((row[crc]||"0").replace(/[$, ]/g,""))||0; amount=c-d; }
-    return {date,desc,amount};
-  }).filter(r=>r.desc);
+    if (ac) amount = parseFloat(row[ac].replace(/[$, ]/g, "")) || 0;else if (dbc || crc) {
+      const d = parseFloat((row[dbc] || "0").replace(/[$, ]/g, "")) || 0;
+      const c = parseFloat((row[crc] || "0").replace(/[$, ]/g, "")) || 0;
+      amount = c - d;
+    }
+    return {
+      date,
+      desc,
+      amount
+    };
+  }).filter(r => r.desc);
 }
-
 function detectMonth(rows) {
   const counts = {};
-  rows.forEach(r=>{ if(r.date){const k=`${r.date.getFullYear()}-${r.date.getMonth()}`; counts[k]=(counts[k]||0)+1;} });
-  const top = Object.entries(counts).sort((a,b)=>b[1]-a[1])[0]?.[0];
+  rows.forEach(r => {
+    if (r.date) {
+      const k = `${r.date.getFullYear()}-${r.date.getMonth()}`;
+      counts[k] = (counts[k] || 0) + 1;
+    }
+  });
+  const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0];
   if (!top) return null;
-  const [y,m] = top.split("-").map(Number);
-  return {month:m,year:y};
+  const [y, m] = top.split("-").map(Number);
+  return {
+    month: m,
+    year: y
+  };
 }
 function autoTag(rows) {
-  const t={};
-  rows.forEach((r,i)=>{ t[i]=r.amount>0?"income":r.amount<0?"bill":"ignore"; });
+  const t = {};
+  rows.forEach((r, i) => {
+    t[i] = r.amount > 0 ? "income" : r.amount < 0 ? "bill" : "ignore";
+  });
   return t;
 }
 
 // ── Main App ──────────────────────────────────────────────────────────────────
 function App() {
-  const [ready, setReady]           = useState(false);
-  const [profile, setProfile]       = useState(0); // 0 or 1
-  const [profileNames, setProfileNames] = useState(["Person 1","Person 2"]);
-  const [editingName, setEditingName]   = useState(null); // null | 0 | 1
-  const [nameInput, setNameInput]       = useState("");
-  const [allData, setAllData]   = useState({});
-  const [month, setMonth]       = useState(today.getMonth());
-  const [year,  setYear]        = useState(today.getFullYear());
+  const [ready, setReady] = useState(false);
+  const [profile, setProfile] = useState(0); // 0 or 1
+  const [profileNames, setProfileNames] = useState(["Person 1", "Person 2"]);
+  const [editingName, setEditingName] = useState(null); // null | 0 | 1
+  const [nameInput, setNameInput] = useState("");
+  const [allData, setAllData] = useState({});
+  const [month, setMonth] = useState(today.getMonth());
+  const [year, setYear] = useState(today.getFullYear());
   const [activeTab, setActiveTab] = useState("overview");
-
   const [showIncomeModal, setShowIncomeModal] = useState(false);
-  const [incomeForm, setIncomeForm] = useState({label:"",amount:""});
+  const [incomeForm, setIncomeForm] = useState({
+    label: "",
+    amount: ""
+  });
   const [editIncomeIdx, setEditIncomeIdx] = useState(null);
-
   const [showBillModal, setShowBillModal] = useState(false);
-  const [billForm, setBillForm] = useState({label:"",amount:"",due:"",paid:false});
+  const [billForm, setBillForm] = useState({
+    label: "",
+    amount: "",
+    due: "",
+    paid: false
+  });
   const [editBillIdx, setEditBillIdx] = useState(null);
-
   const [showSavingsModal, setShowSavingsModal] = useState(false);
-  const [savingsForm, setSavingsForm] = useState({label:"",target:"",current:""});
+  const [savingsForm, setSavingsForm] = useState({
+    label: "",
+    target: "",
+    current: ""
+  });
   const [editSavingsIdx, setEditSavingsIdx] = useState(null);
-
   const [showCopyModal, setShowCopyModal] = useState(false);
   const [copyTargets, setCopyTargets] = useState([]);
-  const [copyWhat, setCopyWhat] = useState({income:true,bills:true});
+  const [copyWhat, setCopyWhat] = useState({
+    income: true,
+    bills: true
+  });
   const [copySuccess, setCopySuccess] = useState(false);
-
-  const [importStep,  setImportStep]  = useState(null);
-  const [importRows,  setImportRows]  = useState([]);
-  const [importTags,  setImportTags]  = useState({});
+  const [importStep, setImportStep] = useState(null);
+  const [importRows, setImportRows] = useState([]);
+  const [importTags, setImportTags] = useState({});
   const [importError, setImportError] = useState("");
   const [importMonth, setImportMonth] = useState(null);
   const [filterMonth, setFilterMonth] = useState(true);
-  const [importMode,  setImportMode]  = useState("csv");
-  const [loadingMsg,  setLoadingMsg]  = useState("");
-  const csvRef     = useRef();
-  const pdfRef     = useRef();
+  const [importMode, setImportMode] = useState("csv");
+  const [loadingMsg, setLoadingMsg] = useState("");
+  const csvRef = useRef();
+  const pdfRef = useRef();
   const jsonImport = useRef();
 
   // ── Export: show JSON in a copyable modal ──
-  const [showBackup, setShowBackup]   = useState(false);
+  const [showBackup, setShowBackup] = useState(false);
   const [showRestore, setShowRestore] = useState(false);
   const [restorePaste, setRestorePaste] = useState("");
   const backupText = showBackup ? JSON.stringify(allData, null, 2) : "";
-
   async function handleRestore() {
     try {
       const data = JSON.parse(restorePaste);
-      const isValid = typeof data === "object" && !Array.isArray(data) && Object.values(data).every(
-        v => v && typeof v === "object" && Array.isArray(v.income) && Array.isArray(v.bills)
-      );
-      if (!isValid) { alert("That doesn't look like a Finance Tracker backup."); return; }
+      const isValid = typeof data === "object" && !Array.isArray(data) && Object.values(data).every(v => v && typeof v === "object" && Array.isArray(v.income) && Array.isArray(v.bills));
+      if (!isValid) {
+        alert("That doesn't look like a Finance Tracker backup.");
+        return;
+      }
       for (const [k, v] of Object.entries(data)) await storeMonth(k, v);
       setAllData(data);
-      setShowRestore(false); setRestorePaste("");
+      setShowRestore(false);
+      setRestorePaste("");
       alert("Restored " + Object.keys(data).length + " months of data!");
-    } catch { alert("Could not parse that — make sure you copied the full backup text."); }
+    } catch {
+      alert("Could not parse that — make sure you copied the full backup text.");
+    }
   }
-
   function copyBackup() {
-    navigator.clipboard.writeText(backupText).then(()=>alert("Copied to clipboard!")).catch(()=>{
+    navigator.clipboard.writeText(backupText).then(() => alert("Copied to clipboard!")).catch(() => {
       const ta = document.getElementById("backup-ta");
-      if (ta) { ta.select(); document.execCommand("copy"); alert("Copied!"); }
+      if (ta) {
+        ta.select();
+        document.execCommand("copy");
+        alert("Copied!");
+      }
     });
   }
 
   // ── Import a JSON backup to restore all data ──
   async function handleJSONImport(e) {
-    const file = e.target.files[0]; if (!file) return;
+    const file = e.target.files[0];
+    if (!file) return;
     const reader = new FileReader();
     reader.onload = async ev => {
       try {
         const data = JSON.parse(ev.target.result);
-        const isValid = typeof data === "object" && !Array.isArray(data) && Object.values(data).every(
-          v => v && typeof v === "object" && Array.isArray(v.income) && Array.isArray(v.bills)
-        );
-        if (!isValid) { alert("That doesn't look like a Finance Tracker backup file."); return; }
+        const isValid = typeof data === "object" && !Array.isArray(data) && Object.values(data).every(v => v && typeof v === "object" && Array.isArray(v.income) && Array.isArray(v.bills));
+        if (!isValid) {
+          alert("That doesn't look like a Finance Tracker backup file.");
+          return;
+        }
         for (const [k, v] of Object.entries(data)) await storeMonth(k, v);
         setAllData(data);
         alert("Restored " + Object.keys(data).length + " months of data!");
-      } catch { alert("Could not read that file."); }
+      } catch {
+        alert("Could not read that file.");
+      }
     };
-    reader.readAsText(file); e.target.value = "";
+    reader.readAsText(file);
+    e.target.value = "";
   }
 
   // ── Boot: load profile names + all months for current profile ──
-  useEffect(()=>{
-    (async()=>{
+  useEffect(() => {
+    (async () => {
       const names = await loadProfileNames();
       setProfileNames(names);
       const keys = await listMonthKeys(getProfilePrefix(0));
@@ -215,7 +279,7 @@ function App() {
       setAllData(loaded);
       setReady(true);
     })();
-  },[]);
+  }, []);
 
   // ── Switch profile: load that profile's data ──
   async function switchProfile(idx) {
@@ -237,167 +301,321 @@ function App() {
     updated[editingName] = nameInput.trim() || profileNames[editingName];
     setProfileNames(updated);
     await storeProfileNames(updated);
-    setEditingName(null); setNameInput("");
+    setEditingName(null);
+    setNameInput("");
   }
 
   // ── Save code: compact base64 of all data ────────────────────────────────
-  const [showSaveCode, setShowSaveCode]   = useState(false);
-  const [showLoadCode, setShowLoadCode]   = useState(false);
-  const [loadCodeText, setLoadCodeText]   = useState("");
-  const [loadCodeErr,  setLoadCodeErr]    = useState("");
-  const [copied,       setCopied]         = useState(false);
-
+  const [showSaveCode, setShowSaveCode] = useState(false);
+  const [showLoadCode, setShowLoadCode] = useState(false);
+  const [loadCodeText, setLoadCodeText] = useState("");
+  const [loadCodeErr, setLoadCodeErr] = useState("");
+  const [copied, setCopied] = useState(false);
   function getSaveCode() {
-    try { return btoa(unescape(encodeURIComponent(JSON.stringify({profile, allData})))); }
-    catch { return ""; }
+    try {
+      return btoa(unescape(encodeURIComponent(JSON.stringify({
+        profile,
+        allData
+      }))));
+    } catch {
+      return "";
+    }
   }
-
   function copySaveCode() {
     const code = getSaveCode();
     if (!code) return;
-    navigator.clipboard.writeText(code).catch(()=>{});
-    setCopied(true); setTimeout(()=>setCopied(false), 2000);
+    navigator.clipboard.writeText(code).catch(() => {});
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   }
-
   async function applyLoadCode() {
     try {
-      const json    = decodeURIComponent(escape(atob(loadCodeText.trim())));
-      const parsed  = JSON.parse(json);
+      const json = decodeURIComponent(escape(atob(loadCodeText.trim())));
+      const parsed = JSON.parse(json);
       // Support both new {profile, allData} format and old plain data format
       const savedProfile = parsed.profile ?? 0;
       const data = parsed.allData ?? parsed;
-      const ok = typeof data==="object" && !Array.isArray(data) &&
-                 Object.values(data).every(v=>v&&Array.isArray(v.income)&&Array.isArray(v.bills));
-      if (!ok) { setLoadCodeErr("That doesn't look right — copy the full save code."); return; }
-      for (const [k,v] of Object.entries(data)) await storeMonth(k,v);
+      const ok = typeof data === "object" && !Array.isArray(data) && Object.values(data).every(v => v && Array.isArray(v.income) && Array.isArray(v.bills));
+      if (!ok) {
+        setLoadCodeErr("That doesn't look right — copy the full save code.");
+        return;
+      }
+      for (const [k, v] of Object.entries(data)) await storeMonth(k, v);
       setAllData(data);
       if (savedProfile !== profile) await switchProfile(savedProfile);
-      setShowLoadCode(false); setLoadCodeText(""); setLoadCodeErr("");
-    } catch { setLoadCodeErr("Couldn't read that code. Make sure you copied it completely."); }
+      setShowLoadCode(false);
+      setLoadCodeText("");
+      setLoadCodeErr("");
+    } catch {
+      setLoadCodeErr("Couldn't read that code. Make sure you copied it completely.");
+    }
   }
-
-  const key       = getKey(profile, year, month);
-  const monthData = allData[key] || {income:[],bills:[]};
-  const totalIncome = monthData.income.reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
-  const totalBills  = monthData.bills.reduce((s,b)=>s+(parseFloat(b.amount)||0),0);
-  const totalPaid   = monthData.bills.filter(b=>b.paid).reduce((s,b)=>s+(parseFloat(b.amount)||0),0);
+  const key = getKey(profile, year, month);
+  const monthData = allData[key] || {
+    income: [],
+    bills: []
+  };
+  const totalIncome = monthData.income.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0);
+  const totalBills = monthData.bills.reduce((s, b) => s + (parseFloat(b.amount) || 0), 0);
+  const totalPaid = monthData.bills.filter(b => b.paid).reduce((s, b) => s + (parseFloat(b.amount) || 0), 0);
   const totalUnpaid = totalBills - totalPaid;
-  const remaining   = totalIncome - totalBills;
-  const paidPct     = totalBills>0 ? Math.round((totalPaid/totalBills)*100) : 0;
-  const totalSaved  = (monthData.savings||[]).reduce((s,sv)=>s+(parseFloat(sv.current)||0),0);
-  const totalTarget = (monthData.savings||[]).reduce((s,sv)=>s+(parseFloat(sv.target)||0),0);
-
+  const remaining = totalIncome - totalBills;
+  const paidPct = totalBills > 0 ? Math.round(totalPaid / totalBills * 100) : 0;
+  const totalSaved = (monthData.savings || []).reduce((s, sv) => s + (parseFloat(sv.current) || 0), 0);
+  const totalTarget = (monthData.savings || []).reduce((s, sv) => s + (parseFloat(sv.target) || 0), 0);
   async function updateMonthData(newData) {
-    const updated = {...allData,[key]:newData};
+    const updated = {
+      ...allData,
+      [key]: newData
+    };
     setAllData(updated);
     await storeMonth(key, newData);
   }
 
   // Income
   async function saveIncome() {
-    if (!incomeForm.label||!incomeForm.amount) return;
-    const items = [...(monthData.income||[])];
-    if (editIncomeIdx!==null) items[editIncomeIdx]={...incomeForm}; else items.push({...incomeForm});
-    await updateMonthData({...monthData,income:items});
-    setShowIncomeModal(false); setIncomeForm({label:"",amount:""}); setEditIncomeIdx(null);
+    if (!incomeForm.label || !incomeForm.amount) return;
+    const items = [...(monthData.income || [])];
+    if (editIncomeIdx !== null) items[editIncomeIdx] = {
+      ...incomeForm
+    };else items.push({
+      ...incomeForm
+    });
+    await updateMonthData({
+      ...monthData,
+      income: items
+    });
+    setShowIncomeModal(false);
+    setIncomeForm({
+      label: "",
+      amount: ""
+    });
+    setEditIncomeIdx(null);
   }
-  async function deleteIncome(idx) { await updateMonthData({...monthData,income:monthData.income.filter((_,i)=>i!==idx)}); }
+  async function deleteIncome(idx) {
+    await updateMonthData({
+      ...monthData,
+      income: monthData.income.filter((_, i) => i !== idx)
+    });
+  }
 
   // Bills
   async function saveBill() {
-    if (!billForm.label||!billForm.amount) return;
-    const items = [...(monthData.bills||[])];
-    if (editBillIdx!==null) items[editBillIdx]={...billForm}; else items.push({...billForm});
-    await updateMonthData({...monthData,bills:items});
-    setShowBillModal(false); setBillForm({label:"",amount:"",due:"",paid:false}); setEditBillIdx(null);
+    if (!billForm.label || !billForm.amount) return;
+    const items = [...(monthData.bills || [])];
+    if (editBillIdx !== null) items[editBillIdx] = {
+      ...billForm
+    };else items.push({
+      ...billForm
+    });
+    await updateMonthData({
+      ...monthData,
+      bills: items
+    });
+    setShowBillModal(false);
+    setBillForm({
+      label: "",
+      amount: "",
+      due: "",
+      paid: false
+    });
+    setEditBillIdx(null);
   }
-  async function deleteBill(idx) { await updateMonthData({...monthData,bills:monthData.bills.filter((_,i)=>i!==idx)}); }
-  async function togglePaid(idx) { await updateMonthData({...monthData,bills:monthData.bills.map((b,i)=>i===idx?{...b,paid:!b.paid}:b)}); }
+  async function deleteBill(idx) {
+    await updateMonthData({
+      ...monthData,
+      bills: monthData.bills.filter((_, i) => i !== idx)
+    });
+  }
+  async function togglePaid(idx) {
+    await updateMonthData({
+      ...monthData,
+      bills: monthData.bills.map((b, i) => i === idx ? {
+        ...b,
+        paid: !b.paid
+      } : b)
+    });
+  }
 
   // Savings
   async function saveSavings() {
     if (!savingsForm.label) return;
-    const items = [...(monthData.savings||[])];
-    if (editSavingsIdx!==null) items[editSavingsIdx]={...savingsForm}; else items.push({...savingsForm});
-    await updateMonthData({...monthData,savings:items});
-    setShowSavingsModal(false); setSavingsForm({label:"",target:"",current:""}); setEditSavingsIdx(null);
+    const items = [...(monthData.savings || [])];
+    if (editSavingsIdx !== null) items[editSavingsIdx] = {
+      ...savingsForm
+    };else items.push({
+      ...savingsForm
+    });
+    await updateMonthData({
+      ...monthData,
+      savings: items
+    });
+    setShowSavingsModal(false);
+    setSavingsForm({
+      label: "",
+      target: "",
+      current: ""
+    });
+    setEditSavingsIdx(null);
   }
-  async function deleteSavings(idx) { await updateMonthData({...monthData,savings:(monthData.savings||[]).filter((_,i)=>i!==idx)}); }
+  async function deleteSavings(idx) {
+    await updateMonthData({
+      ...monthData,
+      savings: (monthData.savings || []).filter((_, i) => i !== idx)
+    });
+  }
   async function updateSavingsCurrent(idx, val) {
-    const items = (monthData.savings||[]).map((sv,i)=>i===idx?{...sv,current:val}:sv);
-    await updateMonthData({...monthData,savings:items});
+    const items = (monthData.savings || []).map((sv, i) => i === idx ? {
+      ...sv,
+      current: val
+    } : sv);
+    await updateMonthData({
+      ...monthData,
+      savings: items
+    });
   }
 
   // Copy
   function getCopyOptions() {
-    return Array.from({length:23},(_,i)=>i-11).filter(d=>d!==0).map(delta=>{
-      let m=month+delta,y=year;
-      while(m<0){m+=12;y--;} while(m>11){m-=12;y++;}
-      const k=getKey(profile,y,m);
-      return {key:k,label:`${MONTHS[m]} ${y}`,hasData:!!(allData[k]?.income?.length||allData[k]?.bills?.length)};
+    return Array.from({
+      length: 23
+    }, (_, i) => i - 11).filter(d => d !== 0).map(delta => {
+      let m = month + delta,
+        y = year;
+      while (m < 0) {
+        m += 12;
+        y--;
+      }
+      while (m > 11) {
+        m -= 12;
+        y++;
+      }
+      const k = getKey(profile, y, m);
+      return {
+        key: k,
+        label: `${MONTHS[m]} ${y}`,
+        hasData: !!(allData[k]?.income?.length || allData[k]?.bills?.length)
+      };
     });
   }
   async function executeCopy() {
     if (!copyTargets.length) return;
-    let updated={...allData};
+    let updated = {
+      ...allData
+    };
     for (const tk of copyTargets) {
-      const ex=updated[tk]||{income:[],bills:[]};
-      const nd={income:copyWhat.income?monthData.income.map(i=>({...i})):ex.income,bills:copyWhat.bills?monthData.bills.map(b=>({...b,paid:false})):ex.bills};
-      updated[tk]=nd; await storeMonth(tk,nd);
+      const ex = updated[tk] || {
+        income: [],
+        bills: []
+      };
+      const nd = {
+        income: copyWhat.income ? monthData.income.map(i => ({
+          ...i
+        })) : ex.income,
+        bills: copyWhat.bills ? monthData.bills.map(b => ({
+          ...b,
+          paid: false
+        })) : ex.bills
+      };
+      updated[tk] = nd;
+      await storeMonth(tk, nd);
     }
-    setAllData(updated); setCopySuccess(true);
-    setTimeout(()=>{setCopySuccess(false);setShowCopyModal(false);setCopyTargets([]);},1400);
+    setAllData(updated);
+    setCopySuccess(true);
+    setTimeout(() => {
+      setCopySuccess(false);
+      setShowCopyModal(false);
+      setCopyTargets([]);
+    }, 1400);
   }
 
   // CSV
   function handleCSVFile(e) {
-    const file=e.target.files[0]; if(!file) return;
-    setImportError(""); setImportMode("csv");
-    const reader=new FileReader();
-    reader.onload=ev=>{
+    const file = e.target.files[0];
+    if (!file) return;
+    setImportError("");
+    setImportMode("csv");
+    const reader = new FileReader();
+    reader.onload = ev => {
       try {
-        const rows=parseCSV(ev.target.result);
-        if(!rows.length){setImportError("No transactions found.");return;}
-        setImportRows(rows); setImportTags(autoTag(rows)); setImportMonth(detectMonth(rows)); setImportStep("review");
-      } catch { setImportError("Could not parse this file."); }
+        const rows = parseCSV(ev.target.result);
+        if (!rows.length) {
+          setImportError("No transactions found.");
+          return;
+        }
+        setImportRows(rows);
+        setImportTags(autoTag(rows));
+        setImportMonth(detectMonth(rows));
+        setImportStep("review");
+      } catch {
+        setImportError("Could not parse this file.");
+      }
     };
-    reader.readAsText(file); e.target.value="";
+    reader.readAsText(file);
+    e.target.value = "";
   }
 
   // PDF — user shares PDF in chat, I load it. Button kept for future.
   function handlePDFFile(e) {
-    const file=e.target.files[0]; if(!file) return;
-    setImportError("Share your Wells Fargo PDF directly in this chat and I'll add it for you instantly — that's the most reliable method."); 
-    e.target.value="";
+    const file = e.target.files[0];
+    if (!file) return;
+    setImportError("Share your Wells Fargo PDF directly in this chat and I'll add it for you instantly — that's the most reliable method.");
+    e.target.value = "";
   }
-
   function getFilteredRows() {
-    const idx=importRows.map((r,i)=>({...r,idx:i}));
-    if (!filterMonth||!importMonth) return idx;
-    return idx.filter(r=>r.date&&r.date.getMonth()===importMonth.month&&r.date.getFullYear()===importMonth.year);
+    const idx = importRows.map((r, i) => ({
+      ...r,
+      idx: i
+    }));
+    if (!filterMonth || !importMonth) return idx;
+    return idx.filter(r => r.date && r.date.getMonth() === importMonth.month && r.date.getFullYear() === importMonth.year);
   }
   async function commitImport() {
-    const filtered=getFilteredRows();
-    const tMonth=importMonth?.month??month, tYear=importMonth?.year??year;
-    const tKey=getKey(profile,tYear,tMonth);
-    const existing=allData[tKey]||{income:[],bills:[]};
-    const newIncome=[...existing.income], newBills=[...existing.bills];
-    filtered.forEach(r=>{
-      const tag=importTags[r.idx];
-      if(tag==="income") newIncome.push({label:r.desc,amount:String(Math.abs(r.amount))});
-      else if(tag==="bill") newBills.push({label:r.desc,amount:String(Math.abs(r.amount)),due:"",paid:true});
+    const filtered = getFilteredRows();
+    const tMonth = importMonth?.month ?? month,
+      tYear = importMonth?.year ?? year;
+    const tKey = getKey(profile, tYear, tMonth);
+    const existing = allData[tKey] || {
+      income: [],
+      bills: []
+    };
+    const newIncome = [...existing.income],
+      newBills = [...existing.bills];
+    filtered.forEach(r => {
+      const tag = importTags[r.idx];
+      if (tag === "income") newIncome.push({
+        label: r.desc,
+        amount: String(Math.abs(r.amount))
+      });else if (tag === "bill") newBills.push({
+        label: r.desc,
+        amount: String(Math.abs(r.amount)),
+        due: "",
+        paid: true
+      });
     });
-    const nd={income:newIncome,bills:newBills};
-    const updated={...allData,[tKey]:nd};
-    setAllData(updated); await storeMonth(tKey,nd);
-    setMonth(tMonth); setYear(tYear); setImportStep("done");
-    setTimeout(()=>{setImportStep(null);setImportRows([]);setImportTags({});},2000);
+    const nd = {
+      income: newIncome,
+      bills: newBills
+    };
+    const updated = {
+      ...allData,
+      [tKey]: nd
+    };
+    setAllData(updated);
+    await storeMonth(tKey, nd);
+    setMonth(tMonth);
+    setYear(tYear);
+    setImportStep("done");
+    setTimeout(() => {
+      setImportStep(null);
+      setImportRows([]);
+      setImportTags({});
+    }, 2000);
   }
-
-  const filteredRows = importStep==="review" ? getFilteredRows() : [];
-  const incomeRows   = filteredRows.filter(r=>importTags[r.idx]==="income");
-  const billRows     = filteredRows.filter(r=>importTags[r.idx]==="bill");
-  const ignoredRows  = filteredRows.filter(r=>importTags[r.idx]==="ignore");
+  const filteredRows = importStep === "review" ? getFilteredRows() : [];
+  const incomeRows = filteredRows.filter(r => importTags[r.idx] === "income");
+  const billRows = filteredRows.filter(r => importTags[r.idx] === "bill");
+  const ignoredRows = filteredRows.filter(r => importTags[r.idx] === "ignore");
 
   // ── Styles ────────────────────────────────────────────────────────────────
   const css = `
@@ -465,558 +683,1591 @@ function App() {
     .spinner{width:40px;height:40px;border:3px solid #2a2a38;border-top-color:#c9a84c;border-radius:50%;animation:spin .9s linear infinite;margin:0 auto 20px;}
     @keyframes spin{to{transform:rotate(360deg);}}
   `;
-
-  if (!ready) return (
-    <div style={{minHeight:"100vh",background:"#0d0d10",display:"flex",alignItems:"center",justifyContent:"center"}}>
-      <style>{css}</style>
-      <div className="loading-box"><div className="spinner"/><div style={{fontFamily:"'DM Mono',monospace",fontSize:13,color:"#666"}}>Loading your data…</div></div>
-    </div>
-  );
-
-  return (
-    <div style={{minHeight:"100vh",background:"#0d0d10",color:"#f0ede6",fontFamily:"'DM Serif Display',Georgia,serif"}}>
-      <style>{css}</style>
-
-      {/* Header */}
-      <div style={{borderBottom:"1px solid #1e1e28",padding:"20px 24px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:12}}>
-        <div style={{display:"flex",flexDirection:"column",gap:8}}>
-          <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,letterSpacing:".2em",textTransform:"uppercase",color:"#c9a84c"}}>Finance Tracker</div>
-          <div style={{display:"flex",gap:6}}>
-            {profileNames.map((name,idx)=>(
-              <div key={idx} style={{display:"flex",alignItems:"center",gap:0}}>
-                {editingName===idx ? (
-                  <div style={{display:"flex",alignItems:"center",gap:4}}>
-                    <input
-                      autoFocus
-                      value={nameInput}
-                      onChange={e=>setNameInput(e.target.value)}
-                      onKeyDown={e=>{if(e.key==="Enter")saveProfileName();if(e.key==="Escape"){setEditingName(null);setNameInput("");}}}
-                      style={{background:"#1e1e28",border:"1px solid #c9a84c",borderRadius:6,color:"#f0ede6",fontFamily:"'DM Mono',monospace",fontSize:12,padding:"4px 8px",width:100,outline:"none"}}
-                    />
-                    <button onClick={saveProfileName} style={{background:"#c9a84c",border:"none",borderRadius:4,color:"#0d0d10",cursor:"pointer",fontFamily:"'DM Mono',monospace",fontSize:11,padding:"4px 8px"}}>✓</button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={()=>switchProfile(idx)}
-                    onDoubleClick={()=>{setEditingName(idx);setNameInput(profileNames[idx]);}}
-                    title="Double-tap to rename"
-                    style={{background:profile===idx?"#c9a84c":"#1e1e28",border:`1px solid ${profile===idx?"#c9a84c":"#2a2a38"}`,borderRadius:6,color:profile===idx?"#0d0d10":"#888",cursor:"pointer",fontFamily:"'DM Mono',monospace",fontSize:12,fontWeight:profile===idx?500:400,padding:"5px 14px",transition:"all .2s"}}
-                  >
-                    {name}
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-        <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-          <button className="import-btn" onClick={()=>{setImportStep("pick");setImportError("");}}>↑ Import CSV</button>
-          <button className="copy-btn" style={{color:"#9a8aff",borderColor:"#3a2a6a"}} onClick={()=>setShowSaveCode(true)}>💾 Save Code</button>
-          <button className="copy-btn" style={{color:"#9a8aff",borderColor:"#3a2a6a"}} onClick={()=>{setShowLoadCode(true);setLoadCodeErr("");}}>📂 Load Code</button>
-          {(monthData.income.length>0||monthData.bills.length>0)&&(
-            <button className="copy-btn" onClick={()=>{setCopyTargets([]);setCopySuccess(false);setShowCopyModal(true);}}>⎘ Copy Month</button>
-          )}
-          <button className="nav-arrow" onClick={()=>{if(month===0){setMonth(11);setYear(y=>y-1);}else setMonth(m=>m-1);}}>‹</button>
-          <select value={month} onChange={e=>setMonth(Number(e.target.value))}>
-            {MONTHS.map((m,i)=><option key={i} value={i}>{m}</option>)}
-          </select>
-          <input type="number" value={year} onChange={e=>setYear(Number(e.target.value))} style={{background:"#1a1a22",border:"1px solid #2a2a38",borderRadius:8,color:"#f0ede6",fontFamily:"'DM Mono',monospace",fontSize:13,padding:"8px 10px",width:80,outline:"none",textAlign:"center"}}/>
-          <button className="nav-arrow" onClick={()=>{if(month===11){setMonth(0);setYear(y=>y+1);}else setMonth(m=>m+1);}}>›</button>
-        </div>
-      </div>
-
-      {/* Save Code Bar — always visible when there's data */}
-      {Object.keys(allData).length>0&&(
-        <div style={{background:"#13131a",borderBottom:"1px solid #1e1e28",padding:"10px 24px",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-          <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:"#555",letterSpacing:".08em",textTransform:"uppercase"}}>{profileNames[profile]} — Save before closing →</span>
-          <button onClick={copySaveCode} style={{background:copied?"#1a3a25":"#1e1e28",border:`1px solid ${copied?"#3a6040":"#2a2a38"}`,borderRadius:6,color:copied?"#5ec97e":"#9a8aff",cursor:"pointer",fontFamily:"'DM Mono',monospace",fontSize:12,padding:"5px 14px",transition:"all .2s"}}>
-            {copied?"✓ Copied!":"📋 Copy Save Code"}
-          </button>
-          <button onClick={()=>{setShowLoadCode(true);setLoadCodeErr("");}} style={{background:"#1e1e28",border:"1px solid #2a2a38",borderRadius:6,color:"#666",cursor:"pointer",fontFamily:"'DM Mono',monospace",fontSize:12,padding:"5px 14px"}}>
-            📂 Load Saved Code
-          </button>
-          <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:"#333",marginLeft:"auto"}}>{Object.keys(allData).length} month{Object.keys(allData).length!==1?"s":""} saved</span>
-        </div>
-      )}
-
-      {/* Tabs */}
-      <div style={{padding:"16px 24px 0",display:"flex",gap:4}}>
-        {["overview","income","bills","savings"].map(t=>(
-          <button key={t} className={`tab-btn ${activeTab===t?"active":""}`} onClick={()=>setActiveTab(t)}>{t}</button>
-        ))}
-      </div>
-
-      <div style={{padding:"20px 24px",maxWidth:860,margin:"0 auto"}}>
-
-        {/* OVERVIEW */}
-        {activeTab==="overview"&&(
-          <div style={{display:"flex",flexDirection:"column",gap:16}}>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:12}}>
-              {[
-                {label:"Total Income", value:formatCurrency(totalIncome), color:"#5ec97e"},
-                {label:"Total Bills",  value:formatCurrency(totalBills),  color:"#e07070"},
-                {label:"Remaining",    value:formatCurrency(remaining),   color:remaining>=0?"#c9a84c":"#e05252"},
-              ].map(s=>(
-                <div key={s.label} className="card">
-                  <div className="stat-label">{s.label}</div>
-                  <div style={{fontSize:28,color:s.color}}>{s.value}</div>
-                </div>
-              ))}
-            </div>
-            <div className="card">
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",marginBottom:6}}>
-                <div><div className="stat-label">Bills Paid</div>
-                  <div style={{fontSize:20}}>{formatCurrency(totalPaid)} <span style={{color:"#555",fontSize:14}}>of {formatCurrency(totalBills)}</span></div>
-                </div>
-                <div style={{fontFamily:"'DM Mono',monospace",fontSize:24,color:"#c9a84c"}}>{paidPct}%</div>
-              </div>
-              <div className="progress-bar"><div className="progress-fill" style={{width:`${paidPct}%`}}/></div>
-              <div style={{display:"flex",justifyContent:"space-between",marginTop:10,fontFamily:"'DM Mono',monospace",fontSize:12,color:"#666"}}>
-                <span>Still owed: <span style={{color:"#e07070"}}>{formatCurrency(totalUnpaid)}</span></span>
-                <span>{monthData.bills.filter(b=>b.paid).length}/{monthData.bills.length} bills paid</span>
-              </div>
-            </div>
-            {monthData.bills.length>0&&(
-              <div className="card">
-                <div className="stat-label" style={{marginBottom:12}}>Bill Status</div>
-                {monthData.bills.map((b,i)=>(
-                  <div key={i} className="row-item" style={{justifyContent:"space-between"}}>
-                    <div style={{display:"flex",alignItems:"center",gap:10}}>
-                      <input type="checkbox" className="checkbox" checked={b.paid} onChange={()=>togglePaid(i)}/>
-                      <span style={{textDecoration:b.paid?"line-through":"none",opacity:b.paid?.5:1}}>{b.label}</span>
-                    </div>
-                    <div style={{display:"flex",alignItems:"center",gap:10}}>
-                      <span style={{fontFamily:"'DM Mono',monospace",fontSize:13}}>{formatCurrency(parseFloat(b.amount))}</span>
-                      <span className={`pill ${b.paid?"paid":"unpaid"}`}>{b.paid?"paid":"due"}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-            {(monthData.savings||[]).length>0&&(
-              <div className="card">
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",marginBottom:16}}>
-                  <div>
-                    <div className="stat-label">Savings Goals</div>
-                    <div style={{fontSize:20}}>{formatCurrency(totalSaved)} <span style={{color:"#555",fontSize:14}}>of {formatCurrency(totalTarget)} target</span></div>
-                  </div>
-                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:20,color:"#5ec97e"}}>{totalTarget>0?Math.round((totalSaved/totalTarget)*100):0}%</div>
-                </div>
-                {(monthData.savings||[]).map((sv,i)=>{
-                  const cur=parseFloat(sv.current)||0, tgt=parseFloat(sv.target)||0;
-                  const pct=tgt>0?Math.min(100,Math.round((cur/tgt)*100)):0;
-                  return (
-                    <div key={i} style={{marginBottom:16}}>
-                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-                        <span style={{fontSize:14}}>{sv.label}</span>
-                        <div style={{display:"flex",alignItems:"center",gap:8}}>
-                          <span style={{fontFamily:"'DM Mono',monospace",fontSize:13,color:"#5ec97e"}}>{formatCurrency(cur)}</span>
-                          {tgt>0&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:"#555"}}>/ {formatCurrency(tgt)}</span>}
-                        </div>
-                      </div>
-                      <div className="progress-bar"><div className="progress-fill" style={{width:`${pct}%`,background:"linear-gradient(90deg,#3a8a5c,#5ec97e)"}}/></div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-            {monthData.income.length===0&&monthData.bills.length===0&&(monthData.savings||[]).length===0&&(
-              <div style={{textAlign:"center",padding:"60px 0",color:"#444"}}>
-                <div style={{fontSize:40,marginBottom:12}}>📒</div>
-                <div style={{fontFamily:"'DM Mono',monospace",fontSize:13}}>No data for {MONTHS[month]} {year}</div>
-                <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:"#333",marginTop:6}}>Share a PDF in chat or import a CSV</div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* INCOME */}
-        {activeTab==="income"&&(
-          <div className="card">
-            <div style={{marginBottom:20}}>
-              <div className="stat-label">Income — {MONTHS[month]} {year}</div>
-              <div style={{fontSize:26,color:"#5ec97e"}}>{formatCurrency(totalIncome)}</div>
-            </div>
-            {monthData.income.length===0&&<div style={{textAlign:"center",padding:"30px 0",color:"#444",fontFamily:"'DM Mono',monospace",fontSize:13}}>No income entries yet</div>}
-            {monthData.income.map((inc,i)=>(
-              <div key={i} className="row-item" style={{justifyContent:"space-between"}}>
-                <span>{inc.label}</span>
-                <div style={{display:"flex",alignItems:"center",gap:8}}>
-                  <span style={{fontFamily:"'DM Mono',monospace",fontSize:14,color:"#5ec97e"}}>{formatCurrency(parseFloat(inc.amount))}</span>
-                  <button className="icon-btn" onClick={()=>{setIncomeForm(inc);setEditIncomeIdx(i);setShowIncomeModal(true);}}>✏️</button>
-                  <button className="icon-btn danger" onClick={()=>deleteIncome(i)}>🗑</button>
-                </div>
-              </div>
-            ))}
-            <button className="add-btn" onClick={()=>{setIncomeForm({label:"",amount:""});setEditIncomeIdx(null);setShowIncomeModal(true);}}>
-              <span style={{fontSize:18}}>+</span> Add Income Source
-            </button>
-          </div>
-        )}
-
-        {/* BILLS */}
-        {activeTab==="bills"&&(
-          <div className="card">
-            <div style={{marginBottom:20}}>
-              <div className="stat-label">Bills — {MONTHS[month]} {year}</div>
-              <div style={{fontSize:26}}>
-                <span style={{color:"#e07070"}}>{formatCurrency(totalBills)}</span>
-                <span style={{color:"#444",fontSize:14,marginLeft:10}}>{formatCurrency(totalUnpaid)} remaining</span>
-              </div>
-            </div>
-            {monthData.bills.length===0&&<div style={{textAlign:"center",padding:"30px 0",color:"#444",fontFamily:"'DM Mono',monospace",fontSize:13}}>No bills yet</div>}
-            {monthData.bills.map((b,i)=>(
-              <div key={i} className="row-item" style={{justifyContent:"space-between"}}>
-                <div style={{display:"flex",alignItems:"center",gap:10}}>
-                  <input type="checkbox" className="checkbox" checked={b.paid} onChange={()=>togglePaid(i)}/>
-                  <div>
-                    <div style={{textDecoration:b.paid?"line-through":"none",opacity:b.paid?.5:1}}>{b.label}</div>
-                    {b.due&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:"#555"}}>Due: {b.due}</div>}
-                  </div>
-                </div>
-                <div style={{display:"flex",alignItems:"center",gap:8}}>
-                  <span style={{fontFamily:"'DM Mono',monospace",fontSize:14}}>{formatCurrency(parseFloat(b.amount))}</span>
-                  <span className={`pill ${b.paid?"paid":"unpaid"}`}>{b.paid?"paid":"due"}</span>
-                  <button className="icon-btn" onClick={()=>{setBillForm(b);setEditBillIdx(i);setShowBillModal(true);}}>✏️</button>
-                  <button className="icon-btn danger" onClick={()=>deleteBill(i)}>🗑</button>
-                </div>
-              </div>
-            ))}
-            <button className="add-btn" onClick={()=>{setBillForm({label:"",amount:"",due:"",paid:false});setEditBillIdx(null);setShowBillModal(true);}}>
-              <span style={{fontSize:18}}>+</span> Add Bill
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* SAVINGS TAB */}
-      {activeTab==="savings"&&(
-        <div className="card">
-          <div style={{marginBottom:20}}>
-            <div className="stat-label">Savings Goals — {MONTHS[month]} {year}</div>
-            <div style={{fontSize:26,color:"#5ec97e"}}>{formatCurrency(totalSaved)} <span style={{fontSize:16,color:"#555"}}>saved</span></div>
-            {totalTarget>0&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:"#666",marginTop:4}}>{formatCurrency(totalTarget-totalSaved)} remaining to reach all goals</div>}
-          </div>
-          {(monthData.savings||[]).length===0&&<div style={{textAlign:"center",padding:"30px 0",color:"#444",fontFamily:"'DM Mono',monospace",fontSize:13}}>No savings goals yet</div>}
-          {(monthData.savings||[]).map((sv,i)=>{
-            const cur=parseFloat(sv.current)||0, tgt=parseFloat(sv.target)||0;
-            const pct=tgt>0?Math.min(100,Math.round((cur/tgt)*100)):0;
-            return (
-              <div key={i} style={{marginBottom:20,paddingBottom:20,borderBottom:"1px solid #1e1e28"}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
-                  <div>
-                    <div style={{fontSize:16,marginBottom:4}}>{sv.label}</div>
-                    <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:"#666"}}>
-                      {formatCurrency(cur)} saved{tgt>0?` of ${formatCurrency(tgt)} goal`:""}
-                      {tgt>0&&cur>=tgt&&<span style={{color:"#5ec97e",marginLeft:8}}>✓ Goal reached!</span>}
-                    </div>
-                  </div>
-                  <div style={{display:"flex",gap:6,alignItems:"center"}}>
-                    {tgt>0&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:14,color:"#5ec97e"}}>{pct}%</span>}
-                    <button className="icon-btn" onClick={()=>{setSavingsForm(sv);setEditSavingsIdx(i);setShowSavingsModal(true);}}>✏️</button>
-                    <button className="icon-btn danger" onClick={()=>deleteSavings(i)}>🗑</button>
-                  </div>
-                </div>
-                {tgt>0&&<div className="progress-bar"><div className="progress-fill" style={{width:`${pct}%`,background:"linear-gradient(90deg,#3a8a5c,#5ec97e)"}}/></div>}
-                <div style={{display:"flex",alignItems:"center",gap:8,marginTop:10}}>
-                  <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:"#666",whiteSpace:"nowrap"}}>Update amount:</span>
-                  <input type="number" value={sv.current} placeholder="0.00"
-                    onChange={e=>updateSavingsCurrent(i, e.target.value)}
-                    style={{background:"#0d0d10",border:"1px solid #2a2a38",borderRadius:6,color:"#5ec97e",fontFamily:"'DM Mono',monospace",fontSize:13,padding:"5px 10px",width:120,outline:"none"}}/>
-                </div>
-              </div>
-            );
-          })}
-          <button className="add-btn" onClick={()=>{setSavingsForm({label:"",target:"",current:""});setEditSavingsIdx(null);setShowSavingsModal(true);}}>
-            <span style={{fontSize:18}}>+</span> Add Savings Goal
-          </button>
-        </div>
-      )}
-
-      {/* Income Modal */}
-      {showIncomeModal&&(
-        <div className="overlay" onClick={()=>setShowIncomeModal(false)}>
-          <div className="modal" onClick={e=>e.stopPropagation()}>
-            <h2 style={{fontSize:20,fontWeight:400,marginBottom:20}}>{editIncomeIdx!==null?"Edit":"Add"} Income</h2>
-            <div style={{display:"flex",flexDirection:"column",gap:14}}>
-              <div><label>Source / Label</label><input placeholder="e.g. Salary, Freelance" value={incomeForm.label} onChange={e=>setIncomeForm(f=>({...f,label:e.target.value}))}/></div>
-              <div><label>Amount ($)</label><input type="number" placeholder="0.00" value={incomeForm.amount} onChange={e=>setIncomeForm(f=>({...f,amount:e.target.value}))}/></div>
-            </div>
-            <div style={{display:"flex",gap:10,marginTop:22,justifyContent:"flex-end"}}>
-              <button className="btn-cancel" onClick={()=>setShowIncomeModal(false)}>Cancel</button>
-              <button className="btn-save" onClick={saveIncome}>Save</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Bill Modal */}
-      {showBillModal&&(
-        <div className="overlay" onClick={()=>setShowBillModal(false)}>
-          <div className="modal" onClick={e=>e.stopPropagation()}>
-            <h2 style={{fontSize:20,fontWeight:400,marginBottom:20}}>{editBillIdx!==null?"Edit":"Add"} Bill</h2>
-            <div style={{display:"flex",flexDirection:"column",gap:14}}>
-              <div><label>Bill Name</label><input placeholder="e.g. Rent, Netflix" value={billForm.label} onChange={e=>setBillForm(f=>({...f,label:e.target.value}))}/></div>
-              <div><label>Amount ($)</label><input type="number" placeholder="0.00" value={billForm.amount} onChange={e=>setBillForm(f=>({...f,amount:e.target.value}))}/></div>
-              <div><label>Due Date (optional)</label><input type="date" value={billForm.due} onChange={e=>setBillForm(f=>({...f,due:e.target.value}))}/></div>
-              <div style={{display:"flex",alignItems:"center",gap:10}}>
-                <input type="checkbox" className="checkbox" id="pc" checked={billForm.paid} onChange={e=>setBillForm(f=>({...f,paid:e.target.checked}))}/>
-                <label htmlFor="pc" style={{fontFamily:"'DM Mono',monospace",fontSize:12,letterSpacing:".08em",textTransform:"uppercase",color:"#888",cursor:"pointer",marginBottom:0}}>Already Paid</label>
-              </div>
-            </div>
-            <div style={{display:"flex",gap:10,marginTop:22,justifyContent:"flex-end"}}>
-              <button className="btn-cancel" onClick={()=>setShowBillModal(false)}>Cancel</button>
-              <button className="btn-save" onClick={saveBill}>Save</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Copy Modal */}
-      {showCopyModal&&(
-        <div className="overlay" onClick={()=>setShowCopyModal(false)}>
-          <div className="modal" style={{maxWidth:500}} onClick={e=>e.stopPropagation()}>
-            <h2 style={{fontSize:20,fontWeight:400,marginBottom:4}}>Copy {MONTHS[month]} {year}</h2>
-            <p style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:"#666",marginBottom:18}}>Select which months to copy this data into.</p>
-            <div style={{marginBottom:16}}>
-              <div className="stat-label" style={{marginBottom:8}}>What to copy</div>
-              <div style={{display:"flex",gap:8}}>
-                <button className={`what-toggle ${copyWhat.income?"on":""}`} onClick={()=>setCopyWhat(w=>({...w,income:!w.income}))}>{copyWhat.income?"✓":"○"} Income ({monthData.income.length})</button>
-                <button className={`what-toggle ${copyWhat.bills?"on":""}`} onClick={()=>setCopyWhat(w=>({...w,bills:!w.bills}))}>{copyWhat.bills?"✓":"○"} Bills ({monthData.bills.length})</button>
-              </div>
-            </div>
-            <div className="stat-label" style={{marginBottom:8}}>Copy to</div>
-            <div className="copy-grid">
-              {getCopyOptions().map(({key:k,label,hasData})=>(
-                <div key={k} className={`copy-target ${copyTargets.includes(k)?"selected":""}`} onClick={()=>setCopyTargets(p=>p.includes(k)?p.filter(x=>x!==k):[...p,k])}>
-                  <span style={{fontSize:16}}>{copyTargets.includes(k)?"☑":"☐"}</span>
-                  <div>
-                    <div style={{fontFamily:"'DM Mono',monospace",fontSize:13}}>{label}</div>
-                    {hasData&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:"#c9a84c"}}>has data — will overwrite</div>}
-                  </div>
-                </div>
-              ))}
-            </div>
-            {copySuccess?(
-              <div className="success-flash">✓ Copied to {copyTargets.length} month{copyTargets.length!==1?"s":""}!</div>
-            ):(
-              <div style={{display:"flex",gap:10,marginTop:20,justifyContent:"flex-end",alignItems:"center"}}>
-                {copyTargets.length>0&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:"#666",marginRight:"auto"}}>{copyTargets.length} selected</span>}
-                <button className="btn-cancel" onClick={()=>setShowCopyModal(false)}>Cancel</button>
-                <button className="btn-save" onClick={executeCopy} style={{opacity:copyTargets.length===0||(!copyWhat.income&&!copyWhat.bills)?.4:1}}>Copy →</button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Import: Pick */}
-      {importStep==="pick"&&(
-        <div className="overlay" onClick={()=>setImportStep(null)}>
-          <div className="modal" style={{maxWidth:460}} onClick={e=>e.stopPropagation()}>
-            <h2 style={{fontSize:20,fontWeight:400,marginBottom:6}}>Import Transactions</h2>
-            <p style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:"#666",marginBottom:20,lineHeight:1.7}}>
-              For CSV files from your bank, upload below. For Wells Fargo PDFs, just share the PDF in this chat and it gets added automatically.
-            </p>
-            <div className="pick-card csv-card" onClick={()=>csvRef.current?.click()}>
-              <div style={{fontSize:32,marginBottom:10}}>📄</div>
-              <div style={{fontFamily:"'DM Mono',monospace",fontSize:13,color:"#5ec97e",marginBottom:6}}>Upload CSV File</div>
-              <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:"#555",lineHeight:1.5}}>Chase, Bank of America, Wells Fargo desktop export</div>
-            </div>
-            <input ref={csvRef} type="file" accept=".csv,text/csv" style={{display:"none"}} onChange={handleCSVFile}/>
-            <input ref={pdfRef} type="file" accept=".pdf" style={{display:"none"}} onChange={handlePDFFile}/>
-            {importError&&(
-              <div style={{background:"#1a2a1e",border:"1px solid #2a4a32",borderRadius:8,padding:"12px 14px",marginTop:14,fontFamily:"'DM Mono',monospace",fontSize:12,color:"#5ec97e",lineHeight:1.6}}>
-                💡 {importError}
-              </div>
-            )}
-            <div style={{marginTop:16,textAlign:"right"}}><button className="btn-cancel" onClick={()=>setImportStep(null)}>Cancel</button></div>
-          </div>
-        </div>
-      )}
-
-      {/* Import: Review */}
-      {importStep==="review"&&(
-        <div className="overlay">
-          <div className="big-modal">
-            <div className="bm-header">
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,flexWrap:"wrap"}}>
-                <div>
-                  <h2 style={{fontSize:20,fontWeight:400,marginBottom:4}}>Review Transactions</h2>
-                  <p style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:"#666"}}>Tag each transaction. Bills are marked paid since they've cleared.</p>
-                </div>
-                {importMonth&&(
-                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,background:"#1a2a1e",border:"1px solid #2a4a32",borderRadius:8,padding:"6px 12px",color:"#5ec97e",whiteSpace:"nowrap"}}>
-                    {MONTHS[importMonth.month]} {importMonth.year}
-                  </div>
-                )}
-              </div>
-              {importMonth&&(
-                <label className="toggle-row">
-                  <input type="checkbox" checked={filterMonth} onChange={e=>setFilterMonth(e.target.checked)} style={{accentColor:"#c9a84c"}}/>
-                  Only show {MONTHS[importMonth.month]} {importMonth.year} ({getFilteredRows().length} of {importRows.length})
-                </label>
-              )}
-            </div>
-            <div className="sum-bar">
-              <span className="chip" style={{background:"#1a3a25",color:"#5ec97e"}}>↑ {incomeRows.length} income · {formatCurrency(incomeRows.reduce((s,r)=>s+r.amount,0))}</span>
-              <span className="chip" style={{background:"#3a1a1a",color:"#e07070"}}>↓ {billRows.length} bills · {formatCurrency(Math.abs(billRows.reduce((s,r)=>s+r.amount,0)))}</span>
-              <span className="chip" style={{background:"#222230",color:"#555"}}>— {ignoredRows.length} ignored</span>
-            </div>
-            <div className="bm-body">
-              {filteredRows.length===0&&<div style={{textAlign:"center",padding:"40px 0",color:"#444",fontFamily:"'DM Mono',monospace",fontSize:13}}>No transactions match</div>}
-              {filteredRows.map(r=>{
-                const tag=importTags[r.idx];
-                return (
-                  <div key={r.idx} className="tx-row">
-                    <div style={{minWidth:0}}>
-                      <div style={{fontSize:14,marginBottom:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{r.desc}</div>
-                      <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:"#555"}}>
-                        {r.date?r.date.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}):"No date"}
-                      </div>
-                    </div>
-                    <div style={{fontFamily:"'DM Mono',monospace",fontSize:14,whiteSpace:"nowrap",color:r.amount>=0?"#5ec97e":"#e07070",textAlign:"right"}}>
-                      {r.amount>=0?"+":""}{formatCurrency(r.amount)}
-                    </div>
-                    <div style={{display:"flex",gap:4}}>
-                      <button className={`tag-btn income-${tag==="income"?"on":"off"}`} onClick={()=>setImportTags(t=>({...t,[r.idx]:"income"}))}>Income</button>
-                      <button className={`tag-btn bill-${tag==="bill"?"on":"off"}`} onClick={()=>setImportTags(t=>({...t,[r.idx]:"bill"}))}>Bill</button>
-                      <button className={`tag-btn ignore-${tag==="ignore"?"on":"off"}`} onClick={()=>setImportTags(t=>({...t,[r.idx]:"ignore"}))}>Skip</button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            <div className="bm-footer">
-              <button className="btn-cancel" onClick={()=>setImportStep("pick")}>← Back</button>
-              <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap",justifyContent:"flex-end"}}>
-                <span style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:"#555"}}>→ {importMonth?`${MONTHS[importMonth.month]} ${importMonth.year}`:"current month"}</span>
-                <button className="btn-save" onClick={commitImport} style={{opacity:(incomeRows.length+billRows.length)===0?.4:1}}>
-                  Import {incomeRows.length+billRows.length} transactions →
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Import: Done */}
-      {importStep==="done"&&(
-        <div className="overlay">
-          <div style={{background:"#1a3a25",border:"1px solid #3a6040",borderRadius:16,padding:"40px 56px",textAlign:"center",color:"#5ec97e"}}>
-            <div style={{fontSize:44,marginBottom:12}}>✓</div>
-            <div style={{fontSize:20,fontWeight:400,marginBottom:6}}>Import complete!</div>
-          </div>
-        </div>
-      )}
-
-      {/* Save Code Modal */}
-      {showSaveCode&&(
-        <div className="overlay" onClick={()=>setShowSaveCode(false)}>
-          <div className="modal" style={{maxWidth:520}} onClick={e=>e.stopPropagation()}>
-            <h2 style={{fontSize:20,fontWeight:400,marginBottom:6}}>Your Save Code</h2>
-            <p style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:"#666",marginBottom:14,lineHeight:1.6}}>
-              Copy this and save it somewhere — Notes app, email, anywhere. Paste it back in with <b style={{color:"#f0ede6"}}>📂 Load Code</b> next time to restore everything.
-            </p>
-            <textarea readOnly value={getSaveCode()} style={{width:"100%",height:120,background:"#0d0d10",border:"1px solid #2a2a38",borderRadius:8,color:"#9a8aff",fontFamily:"'DM Mono',monospace",fontSize:10,padding:"10px 12px",resize:"none",outline:"none",wordBreak:"break-all"}}/>
-            <div style={{display:"flex",gap:10,marginTop:14,justifyContent:"flex-end"}}>
-              <button className="btn-cancel" onClick={()=>setShowSaveCode(false)}>Close</button>
-              <button className="btn-save" style={{background:copied?"#1a3a25":"#c9a84c",color:copied?"#5ec97e":"#0d0d10"}} onClick={copySaveCode}>{copied?"✓ Copied!":"Copy to Clipboard"}</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Load Code Modal */}
-      {showLoadCode&&(
-        <div className="overlay" onClick={()=>setShowLoadCode(false)}>
-          <div className="modal" style={{maxWidth:520}} onClick={e=>e.stopPropagation()}>
-            <h2 style={{fontSize:20,fontWeight:400,marginBottom:6}}>Load Saved Data</h2>
-            <p style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:"#666",marginBottom:14,lineHeight:1.6}}>
-              Paste your save code below to restore all your months.
-            </p>
-            <textarea
-              value={loadCodeText}
-              onChange={e=>{setLoadCodeText(e.target.value);setLoadCodeErr("");}}
-              placeholder="Paste your save code here…"
-              style={{width:"100%",height:120,background:"#0d0d10",border:`1px solid ${loadCodeErr?"#6a3030":"#2a2a38"}`,borderRadius:8,color:"#f0ede6",fontFamily:"'DM Mono',monospace",fontSize:10,padding:"10px 12px",resize:"none",outline:"none",wordBreak:"break-all"}}
-            />
-            {loadCodeErr&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:"#e07070",marginTop:8}}>⚠ {loadCodeErr}</div>}
-            <div style={{display:"flex",gap:10,marginTop:14,justifyContent:"flex-end"}}>
-              <button className="btn-cancel" onClick={()=>{setShowLoadCode(false);setLoadCodeText("");setLoadCodeErr("");}}>Cancel</button>
-              <button className="btn-save" onClick={applyLoadCode} style={{opacity:loadCodeText.trim()?1:.4}}>Restore →</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Savings Modal */}
-      {showSavingsModal&&(
-        <div className="overlay" onClick={()=>setShowSavingsModal(false)}>
-          <div className="modal" onClick={e=>e.stopPropagation()}>
-            <h2 style={{fontSize:20,fontWeight:400,marginBottom:20}}>{editSavingsIdx!==null?"Edit":"Add"} Savings Goal</h2>
-            <div style={{display:"flex",flexDirection:"column",gap:14}}>
-              <div><label>Goal Name</label><input placeholder="e.g. Emergency Fund, Vacation" value={savingsForm.label} onChange={e=>setSavingsForm(f=>({...f,label:e.target.value}))}/></div>
-              <div><label>Target Amount ($) — optional</label><input type="number" placeholder="0.00" value={savingsForm.target} onChange={e=>setSavingsForm(f=>({...f,target:e.target.value}))}/></div>
-              <div><label>Current Saved ($)</label><input type="number" placeholder="0.00" value={savingsForm.current} onChange={e=>setSavingsForm(f=>({...f,current:e.target.value}))}/></div>
-            </div>
-            <div style={{display:"flex",gap:10,marginTop:22,justifyContent:"flex-end"}}>
-              <button className="btn-cancel" onClick={()=>setShowSavingsModal(false)}>Cancel</button>
-              <button className="btn-save" onClick={saveSavings}>Save</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* OLD Restore Modal — kept for compat */}
-      {showRestore&&(
-        <div className="overlay" onClick={()=>setShowRestore(false)}>
-          <div className="modal" style={{maxWidth:560}} onClick={e=>e.stopPropagation()}>
-            <h2 style={{fontSize:20,fontWeight:400,marginBottom:6}}>Restore Data</h2>
-            <p style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:"#666",marginBottom:14,lineHeight:1.6}}>
-              Paste your backup text below and tap Restore. This will overwrite your current data.
-            </p>
-            <textarea
-              value={restorePaste}
-              onChange={e=>setRestorePaste(e.target.value)}
-              placeholder='Paste your backup JSON here...'
-              style={{width:"100%",height:200,background:"#0d0d10",border:"1px solid #2a2a38",borderRadius:8,color:"#f0ede6",fontFamily:"'DM Mono',monospace",fontSize:11,padding:"10px 12px",resize:"none",outline:"none"}}
-            />
-            <div style={{display:"flex",gap:10,marginTop:14,justifyContent:"flex-end"}}>
-              <button className="btn-cancel" onClick={()=>{setShowRestore(false);setRestorePaste("");}}>Cancel</button>
-              <button className="btn-save" onClick={handleRestore} style={{opacity:restorePaste.trim()?1:.4}}>Restore</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Backup Modal */}
-      {showBackup&&(
-        <div className="overlay" onClick={()=>setShowBackup(false)}>
-          <div className="modal" style={{maxWidth:560}} onClick={e=>e.stopPropagation()}>
-            <h2 style={{fontSize:20,fontWeight:400,marginBottom:6}}>Backup Your Data</h2>
-            <p style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:"#666",marginBottom:14,lineHeight:1.6}}>
-              Copy all of this text and save it somewhere safe (Notes app, email to yourself, etc). When you need to restore, click <b style={{color:"#f0ede6"}}>⬆ Restore</b> and paste it in.
-            </p>
-            <textarea
-              id="backup-ta"
-              readOnly
-              value={backupText}
-              style={{width:"100%",height:200,background:"#0d0d10",border:"1px solid #2a2a38",borderRadius:8,color:"#5ec97e",fontFamily:"'DM Mono',monospace",fontSize:11,padding:"10px 12px",resize:"none",outline:"none"}}
-            />
-            <div style={{display:"flex",gap:10,marginTop:14,justifyContent:"flex-end"}}>
-              <button className="btn-cancel" onClick={()=>setShowBackup(false)}>Close</button>
-              <button className="btn-save" onClick={copyBackup}>Copy to Clipboard</button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+  if (!ready) return /*#__PURE__*/React.createElement("div", {
+    style: {
+      minHeight: "100vh",
+      background: "#0d0d10",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center"
+    }
+  }, /*#__PURE__*/React.createElement("style", null, css), /*#__PURE__*/React.createElement("div", {
+    className: "loading-box"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "spinner"
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: "'DM Mono',monospace",
+      fontSize: 13,
+      color: "#666"
+    }
+  }, "Loading your data\u2026")));
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      minHeight: "100vh",
+      background: "#0d0d10",
+      color: "#f0ede6",
+      fontFamily: "'DM Serif Display',Georgia,serif"
+    }
+  }, /*#__PURE__*/React.createElement("style", null, css), /*#__PURE__*/React.createElement("div", {
+    style: {
+      borderBottom: "1px solid #1e1e28",
+      padding: "20px 24px",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      flexWrap: "wrap",
+      gap: 12
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: "'DM Mono',monospace",
+      fontSize: 11,
+      letterSpacing: ".2em",
+      textTransform: "uppercase",
+      color: "#c9a84c"
+    }
+  }, "Finance Tracker"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 6
+    }
+  }, profileNames.map((name, idx) => /*#__PURE__*/React.createElement("div", {
+    key: idx,
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 0
+    }
+  }, editingName === idx ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 4
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    autoFocus: true,
+    value: nameInput,
+    onChange: e => setNameInput(e.target.value),
+    onKeyDown: e => {
+      if (e.key === "Enter") saveProfileName();
+      if (e.key === "Escape") {
+        setEditingName(null);
+        setNameInput("");
+      }
+    },
+    style: {
+      background: "#1e1e28",
+      border: "1px solid #c9a84c",
+      borderRadius: 6,
+      color: "#f0ede6",
+      fontFamily: "'DM Mono',monospace",
+      fontSize: 12,
+      padding: "4px 8px",
+      width: 100,
+      outline: "none"
+    }
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: saveProfileName,
+    style: {
+      background: "#c9a84c",
+      border: "none",
+      borderRadius: 4,
+      color: "#0d0d10",
+      cursor: "pointer",
+      fontFamily: "'DM Mono',monospace",
+      fontSize: 11,
+      padding: "4px 8px"
+    }
+  }, "\u2713")) : /*#__PURE__*/React.createElement("button", {
+    onClick: () => switchProfile(idx),
+    onDoubleClick: () => {
+      setEditingName(idx);
+      setNameInput(profileNames[idx]);
+    },
+    title: "Double-tap to rename",
+    style: {
+      background: profile === idx ? "#c9a84c" : "#1e1e28",
+      border: `1px solid ${profile === idx ? "#c9a84c" : "#2a2a38"}`,
+      borderRadius: 6,
+      color: profile === idx ? "#0d0d10" : "#888",
+      cursor: "pointer",
+      fontFamily: "'DM Mono',monospace",
+      fontSize: 12,
+      fontWeight: profile === idx ? 500 : 400,
+      padding: "5px 14px",
+      transition: "all .2s"
+    }
+  }, name))))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 8,
+      flexWrap: "wrap"
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "import-btn",
+    onClick: () => {
+      setImportStep("pick");
+      setImportError("");
+    }
+  }, "\u2191 Import CSV"), /*#__PURE__*/React.createElement("button", {
+    className: "copy-btn",
+    style: {
+      color: "#9a8aff",
+      borderColor: "#3a2a6a"
+    },
+    onClick: () => setShowSaveCode(true)
+  }, "\uD83D\uDCBE Save Code"), /*#__PURE__*/React.createElement("button", {
+    className: "copy-btn",
+    style: {
+      color: "#9a8aff",
+      borderColor: "#3a2a6a"
+    },
+    onClick: () => {
+      setShowLoadCode(true);
+      setLoadCodeErr("");
+    }
+  }, "\uD83D\uDCC2 Load Code"), (monthData.income.length > 0 || monthData.bills.length > 0) && /*#__PURE__*/React.createElement("button", {
+    className: "copy-btn",
+    onClick: () => {
+      setCopyTargets([]);
+      setCopySuccess(false);
+      setShowCopyModal(true);
+    }
+  }, "\u2398 Copy Month"), /*#__PURE__*/React.createElement("button", {
+    className: "nav-arrow",
+    onClick: () => {
+      if (month === 0) {
+        setMonth(11);
+        setYear(y => y - 1);
+      } else setMonth(m => m - 1);
+    }
+  }, "\u2039"), /*#__PURE__*/React.createElement("select", {
+    value: month,
+    onChange: e => setMonth(Number(e.target.value))
+  }, MONTHS.map((m, i) => /*#__PURE__*/React.createElement("option", {
+    key: i,
+    value: i
+  }, m))), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    value: year,
+    onChange: e => setYear(Number(e.target.value)),
+    style: {
+      background: "#1a1a22",
+      border: "1px solid #2a2a38",
+      borderRadius: 8,
+      color: "#f0ede6",
+      fontFamily: "'DM Mono',monospace",
+      fontSize: 13,
+      padding: "8px 10px",
+      width: 80,
+      outline: "none",
+      textAlign: "center"
+    }
+  }), /*#__PURE__*/React.createElement("button", {
+    className: "nav-arrow",
+    onClick: () => {
+      if (month === 11) {
+        setMonth(0);
+        setYear(y => y + 1);
+      } else setMonth(m => m + 1);
+    }
+  }, "\u203A"))), Object.keys(allData).length > 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "#13131a",
+      borderBottom: "1px solid #1e1e28",
+      padding: "10px 24px",
+      display: "flex",
+      alignItems: "center",
+      gap: 10,
+      flexWrap: "wrap"
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontFamily: "'DM Mono',monospace",
+      fontSize: 11,
+      color: "#555",
+      letterSpacing: ".08em",
+      textTransform: "uppercase"
+    }
+  }, profileNames[profile], " \u2014 Save before closing \u2192"), /*#__PURE__*/React.createElement("button", {
+    onClick: copySaveCode,
+    style: {
+      background: copied ? "#1a3a25" : "#1e1e28",
+      border: `1px solid ${copied ? "#3a6040" : "#2a2a38"}`,
+      borderRadius: 6,
+      color: copied ? "#5ec97e" : "#9a8aff",
+      cursor: "pointer",
+      fontFamily: "'DM Mono',monospace",
+      fontSize: 12,
+      padding: "5px 14px",
+      transition: "all .2s"
+    }
+  }, copied ? "✓ Copied!" : "📋 Copy Save Code"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      setShowLoadCode(true);
+      setLoadCodeErr("");
+    },
+    style: {
+      background: "#1e1e28",
+      border: "1px solid #2a2a38",
+      borderRadius: 6,
+      color: "#666",
+      cursor: "pointer",
+      fontFamily: "'DM Mono',monospace",
+      fontSize: 12,
+      padding: "5px 14px"
+    }
+  }, "\uD83D\uDCC2 Load Saved Code"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontFamily: "'DM Mono',monospace",
+      fontSize: 10,
+      color: "#333",
+      marginLeft: "auto"
+    }
+  }, Object.keys(allData).length, " month", Object.keys(allData).length !== 1 ? "s" : "", " saved")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: "16px 24px 0",
+      display: "flex",
+      gap: 4
+    }
+  }, ["overview", "income", "bills", "savings"].map(t => /*#__PURE__*/React.createElement("button", {
+    key: t,
+    className: `tab-btn ${activeTab === t ? "active" : ""}`,
+    onClick: () => setActiveTab(t)
+  }, t))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: "20px 24px",
+      maxWidth: 860,
+      margin: "0 auto"
+    }
+  }, activeTab === "overview" && /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 16
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))",
+      gap: 12
+    }
+  }, [{
+    label: "Total Income",
+    value: formatCurrency(totalIncome),
+    color: "#5ec97e"
+  }, {
+    label: "Total Bills",
+    value: formatCurrency(totalBills),
+    color: "#e07070"
+  }, {
+    label: "Remaining",
+    value: formatCurrency(remaining),
+    color: remaining >= 0 ? "#c9a84c" : "#e05252"
+  }].map(s => /*#__PURE__*/React.createElement("div", {
+    key: s.label,
+    className: "card"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "stat-label"
+  }, s.label), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 28,
+      color: s.color
+    }
+  }, s.value)))), /*#__PURE__*/React.createElement("div", {
+    className: "card"
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "flex-end",
+      marginBottom: 6
+    }
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "stat-label"
+  }, "Bills Paid"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 20
+    }
+  }, formatCurrency(totalPaid), " ", /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: "#555",
+      fontSize: 14
+    }
+  }, "of ", formatCurrency(totalBills)))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: "'DM Mono',monospace",
+      fontSize: 24,
+      color: "#c9a84c"
+    }
+  }, paidPct, "%")), /*#__PURE__*/React.createElement("div", {
+    className: "progress-bar"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "progress-fill",
+    style: {
+      width: `${paidPct}%`
+    }
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      justifyContent: "space-between",
+      marginTop: 10,
+      fontFamily: "'DM Mono',monospace",
+      fontSize: 12,
+      color: "#666"
+    }
+  }, /*#__PURE__*/React.createElement("span", null, "Still owed: ", /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: "#e07070"
+    }
+  }, formatCurrency(totalUnpaid))), /*#__PURE__*/React.createElement("span", null, monthData.bills.filter(b => b.paid).length, "/", monthData.bills.length, " bills paid"))), monthData.bills.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "card"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "stat-label",
+    style: {
+      marginBottom: 12
+    }
+  }, "Bill Status"), monthData.bills.map((b, i) => /*#__PURE__*/React.createElement("div", {
+    key: i,
+    className: "row-item",
+    style: {
+      justifyContent: "space-between"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    className: "checkbox",
+    checked: b.paid,
+    onChange: () => togglePaid(i)
+  }), /*#__PURE__*/React.createElement("span", {
+    style: {
+      textDecoration: b.paid ? "line-through" : "none",
+      opacity: b.paid ? .5 : 1
+    }
+  }, b.label)), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontFamily: "'DM Mono',monospace",
+      fontSize: 13
+    }
+  }, formatCurrency(parseFloat(b.amount))), /*#__PURE__*/React.createElement("span", {
+    className: `pill ${b.paid ? "paid" : "unpaid"}`
+  }, b.paid ? "paid" : "due"))))), (monthData.savings || []).length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "card"
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "flex-end",
+      marginBottom: 16
+    }
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "stat-label"
+  }, "Savings Goals"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 20
+    }
+  }, formatCurrency(totalSaved), " ", /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: "#555",
+      fontSize: 14
+    }
+  }, "of ", formatCurrency(totalTarget), " target"))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: "'DM Mono',monospace",
+      fontSize: 20,
+      color: "#5ec97e"
+    }
+  }, totalTarget > 0 ? Math.round(totalSaved / totalTarget * 100) : 0, "%")), (monthData.savings || []).map((sv, i) => {
+    const cur = parseFloat(sv.current) || 0,
+      tgt = parseFloat(sv.target) || 0;
+    const pct = tgt > 0 ? Math.min(100, Math.round(cur / tgt * 100)) : 0;
+    return /*#__PURE__*/React.createElement("div", {
+      key: i,
+      style: {
+        marginBottom: 16
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: 6
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 14
+      }
+    }, sv.label), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        alignItems: "center",
+        gap: 8
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontFamily: "'DM Mono',monospace",
+        fontSize: 13,
+        color: "#5ec97e"
+      }
+    }, formatCurrency(cur)), tgt > 0 && /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontFamily: "'DM Mono',monospace",
+        fontSize: 11,
+        color: "#555"
+      }
+    }, "/ ", formatCurrency(tgt)))), /*#__PURE__*/React.createElement("div", {
+      className: "progress-bar"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "progress-fill",
+      style: {
+        width: `${pct}%`,
+        background: "linear-gradient(90deg,#3a8a5c,#5ec97e)"
+      }
+    })));
+  })), monthData.income.length === 0 && monthData.bills.length === 0 && (monthData.savings || []).length === 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: "center",
+      padding: "60px 0",
+      color: "#444"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 40,
+      marginBottom: 12
+    }
+  }, "\uD83D\uDCD2"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: "'DM Mono',monospace",
+      fontSize: 13
+    }
+  }, "No data for ", MONTHS[month], " ", year), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: "'DM Mono',monospace",
+      fontSize: 12,
+      color: "#333",
+      marginTop: 6
+    }
+  }, "Share a PDF in chat or import a CSV"))), activeTab === "income" && /*#__PURE__*/React.createElement("div", {
+    className: "card"
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 20
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "stat-label"
+  }, "Income \u2014 ", MONTHS[month], " ", year), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 26,
+      color: "#5ec97e"
+    }
+  }, formatCurrency(totalIncome))), monthData.income.length === 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: "center",
+      padding: "30px 0",
+      color: "#444",
+      fontFamily: "'DM Mono',monospace",
+      fontSize: 13
+    }
+  }, "No income entries yet"), monthData.income.map((inc, i) => /*#__PURE__*/React.createElement("div", {
+    key: i,
+    className: "row-item",
+    style: {
+      justifyContent: "space-between"
+    }
+  }, /*#__PURE__*/React.createElement("span", null, inc.label), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontFamily: "'DM Mono',monospace",
+      fontSize: 14,
+      color: "#5ec97e"
+    }
+  }, formatCurrency(parseFloat(inc.amount))), /*#__PURE__*/React.createElement("button", {
+    className: "icon-btn",
+    onClick: () => {
+      setIncomeForm(inc);
+      setEditIncomeIdx(i);
+      setShowIncomeModal(true);
+    }
+  }, "\u270F\uFE0F"), /*#__PURE__*/React.createElement("button", {
+    className: "icon-btn danger",
+    onClick: () => deleteIncome(i)
+  }, "\uD83D\uDDD1")))), /*#__PURE__*/React.createElement("button", {
+    className: "add-btn",
+    onClick: () => {
+      setIncomeForm({
+        label: "",
+        amount: ""
+      });
+      setEditIncomeIdx(null);
+      setShowIncomeModal(true);
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 18
+    }
+  }, "+"), " Add Income Source")), activeTab === "bills" && /*#__PURE__*/React.createElement("div", {
+    className: "card"
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 20
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "stat-label"
+  }, "Bills \u2014 ", MONTHS[month], " ", year), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 26
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: "#e07070"
+    }
+  }, formatCurrency(totalBills)), /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: "#444",
+      fontSize: 14,
+      marginLeft: 10
+    }
+  }, formatCurrency(totalUnpaid), " remaining"))), monthData.bills.length === 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: "center",
+      padding: "30px 0",
+      color: "#444",
+      fontFamily: "'DM Mono',monospace",
+      fontSize: 13
+    }
+  }, "No bills yet"), monthData.bills.map((b, i) => /*#__PURE__*/React.createElement("div", {
+    key: i,
+    className: "row-item",
+    style: {
+      justifyContent: "space-between"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    className: "checkbox",
+    checked: b.paid,
+    onChange: () => togglePaid(i)
+  }), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      textDecoration: b.paid ? "line-through" : "none",
+      opacity: b.paid ? .5 : 1
+    }
+  }, b.label), b.due && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: "'DM Mono',monospace",
+      fontSize: 11,
+      color: "#555"
+    }
+  }, "Due: ", b.due))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontFamily: "'DM Mono',monospace",
+      fontSize: 14
+    }
+  }, formatCurrency(parseFloat(b.amount))), /*#__PURE__*/React.createElement("span", {
+    className: `pill ${b.paid ? "paid" : "unpaid"}`
+  }, b.paid ? "paid" : "due"), /*#__PURE__*/React.createElement("button", {
+    className: "icon-btn",
+    onClick: () => {
+      setBillForm(b);
+      setEditBillIdx(i);
+      setShowBillModal(true);
+    }
+  }, "\u270F\uFE0F"), /*#__PURE__*/React.createElement("button", {
+    className: "icon-btn danger",
+    onClick: () => deleteBill(i)
+  }, "\uD83D\uDDD1")))), /*#__PURE__*/React.createElement("button", {
+    className: "add-btn",
+    onClick: () => {
+      setBillForm({
+        label: "",
+        amount: "",
+        due: "",
+        paid: false
+      });
+      setEditBillIdx(null);
+      setShowBillModal(true);
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 18
+    }
+  }, "+"), " Add Bill"))), activeTab === "savings" && /*#__PURE__*/React.createElement("div", {
+    className: "card"
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 20
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "stat-label"
+  }, "Savings Goals \u2014 ", MONTHS[month], " ", year), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 26,
+      color: "#5ec97e"
+    }
+  }, formatCurrency(totalSaved), " ", /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 16,
+      color: "#555"
+    }
+  }, "saved")), totalTarget > 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: "'DM Mono',monospace",
+      fontSize: 12,
+      color: "#666",
+      marginTop: 4
+    }
+  }, formatCurrency(totalTarget - totalSaved), " remaining to reach all goals")), (monthData.savings || []).length === 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: "center",
+      padding: "30px 0",
+      color: "#444",
+      fontFamily: "'DM Mono',monospace",
+      fontSize: 13
+    }
+  }, "No savings goals yet"), (monthData.savings || []).map((sv, i) => {
+    const cur = parseFloat(sv.current) || 0,
+      tgt = parseFloat(sv.target) || 0;
+    const pct = tgt > 0 ? Math.min(100, Math.round(cur / tgt * 100)) : 0;
+    return /*#__PURE__*/React.createElement("div", {
+      key: i,
+      style: {
+        marginBottom: 20,
+        paddingBottom: 20,
+        borderBottom: "1px solid #1e1e28"
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "flex-start",
+        marginBottom: 10
+      }
+    }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 16,
+        marginBottom: 4
+      }
+    }, sv.label), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontFamily: "'DM Mono',monospace",
+        fontSize: 12,
+        color: "#666"
+      }
+    }, formatCurrency(cur), " saved", tgt > 0 ? ` of ${formatCurrency(tgt)} goal` : "", tgt > 0 && cur >= tgt && /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: "#5ec97e",
+        marginLeft: 8
+      }
+    }, "\u2713 Goal reached!"))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        gap: 6,
+        alignItems: "center"
+      }
+    }, tgt > 0 && /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontFamily: "'DM Mono',monospace",
+        fontSize: 14,
+        color: "#5ec97e"
+      }
+    }, pct, "%"), /*#__PURE__*/React.createElement("button", {
+      className: "icon-btn",
+      onClick: () => {
+        setSavingsForm(sv);
+        setEditSavingsIdx(i);
+        setShowSavingsModal(true);
+      }
+    }, "\u270F\uFE0F"), /*#__PURE__*/React.createElement("button", {
+      className: "icon-btn danger",
+      onClick: () => deleteSavings(i)
+    }, "\uD83D\uDDD1"))), tgt > 0 && /*#__PURE__*/React.createElement("div", {
+      className: "progress-bar"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "progress-fill",
+      style: {
+        width: `${pct}%`,
+        background: "linear-gradient(90deg,#3a8a5c,#5ec97e)"
+      }
+    })), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        marginTop: 10
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontFamily: "'DM Mono',monospace",
+        fontSize: 11,
+        color: "#666",
+        whiteSpace: "nowrap"
+      }
+    }, "Update amount:"), /*#__PURE__*/React.createElement("input", {
+      type: "number",
+      value: sv.current,
+      placeholder: "0.00",
+      onChange: e => updateSavingsCurrent(i, e.target.value),
+      style: {
+        background: "#0d0d10",
+        border: "1px solid #2a2a38",
+        borderRadius: 6,
+        color: "#5ec97e",
+        fontFamily: "'DM Mono',monospace",
+        fontSize: 13,
+        padding: "5px 10px",
+        width: 120,
+        outline: "none"
+      }
+    })));
+  }), /*#__PURE__*/React.createElement("button", {
+    className: "add-btn",
+    onClick: () => {
+      setSavingsForm({
+        label: "",
+        target: "",
+        current: ""
+      });
+      setEditSavingsIdx(null);
+      setShowSavingsModal(true);
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 18
+    }
+  }, "+"), " Add Savings Goal")), showIncomeModal && /*#__PURE__*/React.createElement("div", {
+    className: "overlay",
+    onClick: () => setShowIncomeModal(false)
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "modal",
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("h2", {
+    style: {
+      fontSize: 20,
+      fontWeight: 400,
+      marginBottom: 20
+    }
+  }, editIncomeIdx !== null ? "Edit" : "Add", " Income"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 14
+    }
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", null, "Source / Label"), /*#__PURE__*/React.createElement("input", {
+    placeholder: "e.g. Salary, Freelance",
+    value: incomeForm.label,
+    onChange: e => setIncomeForm(f => ({
+      ...f,
+      label: e.target.value
+    }))
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", null, "Amount ($)"), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    placeholder: "0.00",
+    value: incomeForm.amount,
+    onChange: e => setIncomeForm(f => ({
+      ...f,
+      amount: e.target.value
+    }))
+  }))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 10,
+      marginTop: 22,
+      justifyContent: "flex-end"
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "btn-cancel",
+    onClick: () => setShowIncomeModal(false)
+  }, "Cancel"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-save",
+    onClick: saveIncome
+  }, "Save")))), showBillModal && /*#__PURE__*/React.createElement("div", {
+    className: "overlay",
+    onClick: () => setShowBillModal(false)
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "modal",
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("h2", {
+    style: {
+      fontSize: 20,
+      fontWeight: 400,
+      marginBottom: 20
+    }
+  }, editBillIdx !== null ? "Edit" : "Add", " Bill"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 14
+    }
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", null, "Bill Name"), /*#__PURE__*/React.createElement("input", {
+    placeholder: "e.g. Rent, Netflix",
+    value: billForm.label,
+    onChange: e => setBillForm(f => ({
+      ...f,
+      label: e.target.value
+    }))
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", null, "Amount ($)"), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    placeholder: "0.00",
+    value: billForm.amount,
+    onChange: e => setBillForm(f => ({
+      ...f,
+      amount: e.target.value
+    }))
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", null, "Due Date (optional)"), /*#__PURE__*/React.createElement("input", {
+    type: "date",
+    value: billForm.due,
+    onChange: e => setBillForm(f => ({
+      ...f,
+      due: e.target.value
+    }))
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    className: "checkbox",
+    id: "pc",
+    checked: billForm.paid,
+    onChange: e => setBillForm(f => ({
+      ...f,
+      paid: e.target.checked
+    }))
+  }), /*#__PURE__*/React.createElement("label", {
+    htmlFor: "pc",
+    style: {
+      fontFamily: "'DM Mono',monospace",
+      fontSize: 12,
+      letterSpacing: ".08em",
+      textTransform: "uppercase",
+      color: "#888",
+      cursor: "pointer",
+      marginBottom: 0
+    }
+  }, "Already Paid"))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 10,
+      marginTop: 22,
+      justifyContent: "flex-end"
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "btn-cancel",
+    onClick: () => setShowBillModal(false)
+  }, "Cancel"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-save",
+    onClick: saveBill
+  }, "Save")))), showCopyModal && /*#__PURE__*/React.createElement("div", {
+    className: "overlay",
+    onClick: () => setShowCopyModal(false)
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "modal",
+    style: {
+      maxWidth: 500
+    },
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("h2", {
+    style: {
+      fontSize: 20,
+      fontWeight: 400,
+      marginBottom: 4
+    }
+  }, "Copy ", MONTHS[month], " ", year), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontFamily: "'DM Mono',monospace",
+      fontSize: 12,
+      color: "#666",
+      marginBottom: 18
+    }
+  }, "Select which months to copy this data into."), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 16
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "stat-label",
+    style: {
+      marginBottom: 8
+    }
+  }, "What to copy"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    className: `what-toggle ${copyWhat.income ? "on" : ""}`,
+    onClick: () => setCopyWhat(w => ({
+      ...w,
+      income: !w.income
+    }))
+  }, copyWhat.income ? "✓" : "○", " Income (", monthData.income.length, ")"), /*#__PURE__*/React.createElement("button", {
+    className: `what-toggle ${copyWhat.bills ? "on" : ""}`,
+    onClick: () => setCopyWhat(w => ({
+      ...w,
+      bills: !w.bills
+    }))
+  }, copyWhat.bills ? "✓" : "○", " Bills (", monthData.bills.length, ")"))), /*#__PURE__*/React.createElement("div", {
+    className: "stat-label",
+    style: {
+      marginBottom: 8
+    }
+  }, "Copy to"), /*#__PURE__*/React.createElement("div", {
+    className: "copy-grid"
+  }, getCopyOptions().map(({
+    key: k,
+    label,
+    hasData
+  }) => /*#__PURE__*/React.createElement("div", {
+    key: k,
+    className: `copy-target ${copyTargets.includes(k) ? "selected" : ""}`,
+    onClick: () => setCopyTargets(p => p.includes(k) ? p.filter(x => x !== k) : [...p, k])
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 16
+    }
+  }, copyTargets.includes(k) ? "☑" : "☐"), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: "'DM Mono',monospace",
+      fontSize: 13
+    }
+  }, label), hasData && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: "'DM Mono',monospace",
+      fontSize: 10,
+      color: "#c9a84c"
+    }
+  }, "has data \u2014 will overwrite"))))), copySuccess ? /*#__PURE__*/React.createElement("div", {
+    className: "success-flash"
+  }, "\u2713 Copied to ", copyTargets.length, " month", copyTargets.length !== 1 ? "s" : "", "!") : /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 10,
+      marginTop: 20,
+      justifyContent: "flex-end",
+      alignItems: "center"
+    }
+  }, copyTargets.length > 0 && /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontFamily: "'DM Mono',monospace",
+      fontSize: 12,
+      color: "#666",
+      marginRight: "auto"
+    }
+  }, copyTargets.length, " selected"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-cancel",
+    onClick: () => setShowCopyModal(false)
+  }, "Cancel"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-save",
+    onClick: executeCopy,
+    style: {
+      opacity: copyTargets.length === 0 || !copyWhat.income && !copyWhat.bills ? .4 : 1
+    }
+  }, "Copy \u2192")))), importStep === "pick" && /*#__PURE__*/React.createElement("div", {
+    className: "overlay",
+    onClick: () => setImportStep(null)
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "modal",
+    style: {
+      maxWidth: 460
+    },
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("h2", {
+    style: {
+      fontSize: 20,
+      fontWeight: 400,
+      marginBottom: 6
+    }
+  }, "Import Transactions"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontFamily: "'DM Mono',monospace",
+      fontSize: 12,
+      color: "#666",
+      marginBottom: 20,
+      lineHeight: 1.7
+    }
+  }, "For CSV files from your bank, upload below. For Wells Fargo PDFs, just share the PDF in this chat and it gets added automatically."), /*#__PURE__*/React.createElement("div", {
+    className: "pick-card csv-card",
+    onClick: () => csvRef.current?.click()
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 32,
+      marginBottom: 10
+    }
+  }, "\uD83D\uDCC4"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: "'DM Mono',monospace",
+      fontSize: 13,
+      color: "#5ec97e",
+      marginBottom: 6
+    }
+  }, "Upload CSV File"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: "'DM Mono',monospace",
+      fontSize: 11,
+      color: "#555",
+      lineHeight: 1.5
+    }
+  }, "Chase, Bank of America, Wells Fargo desktop export")), /*#__PURE__*/React.createElement("input", {
+    ref: csvRef,
+    type: "file",
+    accept: ".csv,text/csv",
+    style: {
+      display: "none"
+    },
+    onChange: handleCSVFile
+  }), /*#__PURE__*/React.createElement("input", {
+    ref: pdfRef,
+    type: "file",
+    accept: ".pdf",
+    style: {
+      display: "none"
+    },
+    onChange: handlePDFFile
+  }), importError && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "#1a2a1e",
+      border: "1px solid #2a4a32",
+      borderRadius: 8,
+      padding: "12px 14px",
+      marginTop: 14,
+      fontFamily: "'DM Mono',monospace",
+      fontSize: 12,
+      color: "#5ec97e",
+      lineHeight: 1.6
+    }
+  }, "\uD83D\uDCA1 ", importError), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 16,
+      textAlign: "right"
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "btn-cancel",
+    onClick: () => setImportStep(null)
+  }, "Cancel")))), importStep === "review" && /*#__PURE__*/React.createElement("div", {
+    className: "overlay"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "big-modal"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bm-header"
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+      gap: 12,
+      flexWrap: "wrap"
+    }
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
+    style: {
+      fontSize: 20,
+      fontWeight: 400,
+      marginBottom: 4
+    }
+  }, "Review Transactions"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontFamily: "'DM Mono',monospace",
+      fontSize: 12,
+      color: "#666"
+    }
+  }, "Tag each transaction. Bills are marked paid since they've cleared.")), importMonth && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: "'DM Mono',monospace",
+      fontSize: 12,
+      background: "#1a2a1e",
+      border: "1px solid #2a4a32",
+      borderRadius: 8,
+      padding: "6px 12px",
+      color: "#5ec97e",
+      whiteSpace: "nowrap"
+    }
+  }, MONTHS[importMonth.month], " ", importMonth.year)), importMonth && /*#__PURE__*/React.createElement("label", {
+    className: "toggle-row"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: filterMonth,
+    onChange: e => setFilterMonth(e.target.checked),
+    style: {
+      accentColor: "#c9a84c"
+    }
+  }), "Only show ", MONTHS[importMonth.month], " ", importMonth.year, " (", getFilteredRows().length, " of ", importRows.length, ")")), /*#__PURE__*/React.createElement("div", {
+    className: "sum-bar"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "chip",
+    style: {
+      background: "#1a3a25",
+      color: "#5ec97e"
+    }
+  }, "\u2191 ", incomeRows.length, " income \xB7 ", formatCurrency(incomeRows.reduce((s, r) => s + r.amount, 0))), /*#__PURE__*/React.createElement("span", {
+    className: "chip",
+    style: {
+      background: "#3a1a1a",
+      color: "#e07070"
+    }
+  }, "\u2193 ", billRows.length, " bills \xB7 ", formatCurrency(Math.abs(billRows.reduce((s, r) => s + r.amount, 0)))), /*#__PURE__*/React.createElement("span", {
+    className: "chip",
+    style: {
+      background: "#222230",
+      color: "#555"
+    }
+  }, "\u2014 ", ignoredRows.length, " ignored")), /*#__PURE__*/React.createElement("div", {
+    className: "bm-body"
+  }, filteredRows.length === 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: "center",
+      padding: "40px 0",
+      color: "#444",
+      fontFamily: "'DM Mono',monospace",
+      fontSize: 13
+    }
+  }, "No transactions match"), filteredRows.map(r => {
+    const tag = importTags[r.idx];
+    return /*#__PURE__*/React.createElement("div", {
+      key: r.idx,
+      className: "tx-row"
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        minWidth: 0
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 14,
+        marginBottom: 2,
+        whiteSpace: "nowrap",
+        overflow: "hidden",
+        textOverflow: "ellipsis"
+      }
+    }, r.desc), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontFamily: "'DM Mono',monospace",
+        fontSize: 11,
+        color: "#555"
+      }
+    }, r.date ? r.date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric"
+    }) : "No date")), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontFamily: "'DM Mono',monospace",
+        fontSize: 14,
+        whiteSpace: "nowrap",
+        color: r.amount >= 0 ? "#5ec97e" : "#e07070",
+        textAlign: "right"
+      }
+    }, r.amount >= 0 ? "+" : "", formatCurrency(r.amount)), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        gap: 4
+      }
+    }, /*#__PURE__*/React.createElement("button", {
+      className: `tag-btn income-${tag === "income" ? "on" : "off"}`,
+      onClick: () => setImportTags(t => ({
+        ...t,
+        [r.idx]: "income"
+      }))
+    }, "Income"), /*#__PURE__*/React.createElement("button", {
+      className: `tag-btn bill-${tag === "bill" ? "on" : "off"}`,
+      onClick: () => setImportTags(t => ({
+        ...t,
+        [r.idx]: "bill"
+      }))
+    }, "Bill"), /*#__PURE__*/React.createElement("button", {
+      className: `tag-btn ignore-${tag === "ignore" ? "on" : "off"}`,
+      onClick: () => setImportTags(t => ({
+        ...t,
+        [r.idx]: "ignore"
+      }))
+    }, "Skip")));
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "bm-footer"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "btn-cancel",
+    onClick: () => setImportStep("pick")
+  }, "\u2190 Back"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 10,
+      alignItems: "center",
+      flexWrap: "wrap",
+      justifyContent: "flex-end"
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontFamily: "'DM Mono',monospace",
+      fontSize: 12,
+      color: "#555"
+    }
+  }, "\u2192 ", importMonth ? `${MONTHS[importMonth.month]} ${importMonth.year}` : "current month"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-save",
+    onClick: commitImport,
+    style: {
+      opacity: incomeRows.length + billRows.length === 0 ? .4 : 1
+    }
+  }, "Import ", incomeRows.length + billRows.length, " transactions \u2192"))))), importStep === "done" && /*#__PURE__*/React.createElement("div", {
+    className: "overlay"
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "#1a3a25",
+      border: "1px solid #3a6040",
+      borderRadius: 16,
+      padding: "40px 56px",
+      textAlign: "center",
+      color: "#5ec97e"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 44,
+      marginBottom: 12
+    }
+  }, "\u2713"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 20,
+      fontWeight: 400,
+      marginBottom: 6
+    }
+  }, "Import complete!"))), showSaveCode && /*#__PURE__*/React.createElement("div", {
+    className: "overlay",
+    onClick: () => setShowSaveCode(false)
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "modal",
+    style: {
+      maxWidth: 520
+    },
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("h2", {
+    style: {
+      fontSize: 20,
+      fontWeight: 400,
+      marginBottom: 6
+    }
+  }, "Your Save Code"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontFamily: "'DM Mono',monospace",
+      fontSize: 12,
+      color: "#666",
+      marginBottom: 14,
+      lineHeight: 1.6
+    }
+  }, "Copy this and save it somewhere \u2014 Notes app, email, anywhere. Paste it back in with ", /*#__PURE__*/React.createElement("b", {
+    style: {
+      color: "#f0ede6"
+    }
+  }, "\uD83D\uDCC2 Load Code"), " next time to restore everything."), /*#__PURE__*/React.createElement("textarea", {
+    readOnly: true,
+    value: getSaveCode(),
+    style: {
+      width: "100%",
+      height: 120,
+      background: "#0d0d10",
+      border: "1px solid #2a2a38",
+      borderRadius: 8,
+      color: "#9a8aff",
+      fontFamily: "'DM Mono',monospace",
+      fontSize: 10,
+      padding: "10px 12px",
+      resize: "none",
+      outline: "none",
+      wordBreak: "break-all"
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 10,
+      marginTop: 14,
+      justifyContent: "flex-end"
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "btn-cancel",
+    onClick: () => setShowSaveCode(false)
+  }, "Close"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-save",
+    style: {
+      background: copied ? "#1a3a25" : "#c9a84c",
+      color: copied ? "#5ec97e" : "#0d0d10"
+    },
+    onClick: copySaveCode
+  }, copied ? "✓ Copied!" : "Copy to Clipboard")))), showLoadCode && /*#__PURE__*/React.createElement("div", {
+    className: "overlay",
+    onClick: () => setShowLoadCode(false)
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "modal",
+    style: {
+      maxWidth: 520
+    },
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("h2", {
+    style: {
+      fontSize: 20,
+      fontWeight: 400,
+      marginBottom: 6
+    }
+  }, "Load Saved Data"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontFamily: "'DM Mono',monospace",
+      fontSize: 12,
+      color: "#666",
+      marginBottom: 14,
+      lineHeight: 1.6
+    }
+  }, "Paste your save code below to restore all your months."), /*#__PURE__*/React.createElement("textarea", {
+    value: loadCodeText,
+    onChange: e => {
+      setLoadCodeText(e.target.value);
+      setLoadCodeErr("");
+    },
+    placeholder: "Paste your save code here\u2026",
+    style: {
+      width: "100%",
+      height: 120,
+      background: "#0d0d10",
+      border: `1px solid ${loadCodeErr ? "#6a3030" : "#2a2a38"}`,
+      borderRadius: 8,
+      color: "#f0ede6",
+      fontFamily: "'DM Mono',monospace",
+      fontSize: 10,
+      padding: "10px 12px",
+      resize: "none",
+      outline: "none",
+      wordBreak: "break-all"
+    }
+  }), loadCodeErr && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: "'DM Mono',monospace",
+      fontSize: 11,
+      color: "#e07070",
+      marginTop: 8
+    }
+  }, "\u26A0 ", loadCodeErr), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 10,
+      marginTop: 14,
+      justifyContent: "flex-end"
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "btn-cancel",
+    onClick: () => {
+      setShowLoadCode(false);
+      setLoadCodeText("");
+      setLoadCodeErr("");
+    }
+  }, "Cancel"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-save",
+    onClick: applyLoadCode,
+    style: {
+      opacity: loadCodeText.trim() ? 1 : .4
+    }
+  }, "Restore \u2192")))), showSavingsModal && /*#__PURE__*/React.createElement("div", {
+    className: "overlay",
+    onClick: () => setShowSavingsModal(false)
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "modal",
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("h2", {
+    style: {
+      fontSize: 20,
+      fontWeight: 400,
+      marginBottom: 20
+    }
+  }, editSavingsIdx !== null ? "Edit" : "Add", " Savings Goal"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 14
+    }
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", null, "Goal Name"), /*#__PURE__*/React.createElement("input", {
+    placeholder: "e.g. Emergency Fund, Vacation",
+    value: savingsForm.label,
+    onChange: e => setSavingsForm(f => ({
+      ...f,
+      label: e.target.value
+    }))
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", null, "Target Amount ($) \u2014 optional"), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    placeholder: "0.00",
+    value: savingsForm.target,
+    onChange: e => setSavingsForm(f => ({
+      ...f,
+      target: e.target.value
+    }))
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", null, "Current Saved ($)"), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    placeholder: "0.00",
+    value: savingsForm.current,
+    onChange: e => setSavingsForm(f => ({
+      ...f,
+      current: e.target.value
+    }))
+  }))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 10,
+      marginTop: 22,
+      justifyContent: "flex-end"
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "btn-cancel",
+    onClick: () => setShowSavingsModal(false)
+  }, "Cancel"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-save",
+    onClick: saveSavings
+  }, "Save")))), showRestore && /*#__PURE__*/React.createElement("div", {
+    className: "overlay",
+    onClick: () => setShowRestore(false)
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "modal",
+    style: {
+      maxWidth: 560
+    },
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("h2", {
+    style: {
+      fontSize: 20,
+      fontWeight: 400,
+      marginBottom: 6
+    }
+  }, "Restore Data"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontFamily: "'DM Mono',monospace",
+      fontSize: 12,
+      color: "#666",
+      marginBottom: 14,
+      lineHeight: 1.6
+    }
+  }, "Paste your backup text below and tap Restore. This will overwrite your current data."), /*#__PURE__*/React.createElement("textarea", {
+    value: restorePaste,
+    onChange: e => setRestorePaste(e.target.value),
+    placeholder: "Paste your backup JSON here...",
+    style: {
+      width: "100%",
+      height: 200,
+      background: "#0d0d10",
+      border: "1px solid #2a2a38",
+      borderRadius: 8,
+      color: "#f0ede6",
+      fontFamily: "'DM Mono',monospace",
+      fontSize: 11,
+      padding: "10px 12px",
+      resize: "none",
+      outline: "none"
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 10,
+      marginTop: 14,
+      justifyContent: "flex-end"
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "btn-cancel",
+    onClick: () => {
+      setShowRestore(false);
+      setRestorePaste("");
+    }
+  }, "Cancel"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-save",
+    onClick: handleRestore,
+    style: {
+      opacity: restorePaste.trim() ? 1 : .4
+    }
+  }, "Restore")))), showBackup && /*#__PURE__*/React.createElement("div", {
+    className: "overlay",
+    onClick: () => setShowBackup(false)
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "modal",
+    style: {
+      maxWidth: 560
+    },
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("h2", {
+    style: {
+      fontSize: 20,
+      fontWeight: 400,
+      marginBottom: 6
+    }
+  }, "Backup Your Data"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontFamily: "'DM Mono',monospace",
+      fontSize: 12,
+      color: "#666",
+      marginBottom: 14,
+      lineHeight: 1.6
+    }
+  }, "Copy all of this text and save it somewhere safe (Notes app, email to yourself, etc). When you need to restore, click ", /*#__PURE__*/React.createElement("b", {
+    style: {
+      color: "#f0ede6"
+    }
+  }, "\u2B06 Restore"), " and paste it in."), /*#__PURE__*/React.createElement("textarea", {
+    id: "backup-ta",
+    readOnly: true,
+    value: backupText,
+    style: {
+      width: "100%",
+      height: 200,
+      background: "#0d0d10",
+      border: "1px solid #2a2a38",
+      borderRadius: 8,
+      color: "#5ec97e",
+      fontFamily: "'DM Mono',monospace",
+      fontSize: 11,
+      padding: "10px 12px",
+      resize: "none",
+      outline: "none"
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 10,
+      marginTop: 14,
+      justifyContent: "flex-end"
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "btn-cancel",
+    onClick: () => setShowBackup(false)
+  }, "Close"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-save",
+    onClick: copyBackup
+  }, "Copy to Clipboard")))));
 }
 
 
-    ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App, null));
   </script>
 </body>
 </html>

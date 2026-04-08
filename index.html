@@ -365,7 +365,6 @@ function App() {
     try {
       const json = decodeURIComponent(escape(atob(loadCodeText.trim())));
       const parsed = JSON.parse(json);
-      // Support both new {profile, allData} format and old plain data format
       const savedProfile = parsed.profile ?? 0;
       const data = parsed.allData ?? parsed;
       const ok = typeof data === "object" && !Array.isArray(data) && Object.values(data).every(v => v && Array.isArray(v.income) && Array.isArray(v.bills));
@@ -375,6 +374,12 @@ function App() {
       }
       for (const [k, v] of Object.entries(data)) await storeMonth(k, v);
       setAllData(data);
+      // Restore yearly savings if present in the code
+      if (Array.isArray(parsed.yearSavings)) {
+        const svYear = parsed.savingsYear ?? year;
+        setYearSavings(parsed.yearSavings);
+        await storeSavings(savedProfile, svYear, parsed.yearSavings);
+      }
       if (savedProfile !== profile) await switchProfile(savedProfile);
       setShowLoadCode(false);
       setLoadCodeText("");
@@ -998,6 +1003,11 @@ function App() {
     value: formatCurrency(totalBills),
     color: "#e07070"
   }, {
+    label: "Total Saved",
+    value: formatCurrency(totalSaved),
+    color: "#7a9eff",
+    sub: totalTarget > 0 ? `of ${formatCurrency(totalTarget)} goal` : null
+  }, {
     label: "Remaining",
     value: formatCurrency(remaining),
     color: remaining >= 0 ? "#c9a84c" : "#e05252"
@@ -1011,7 +1021,14 @@ function App() {
       fontSize: 28,
       color: s.color
     }
-  }, s.value)))), /*#__PURE__*/React.createElement("div", {
+  }, s.value), s.sub && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: "'DM Mono',monospace",
+      fontSize: 11,
+      color: "#555",
+      marginTop: 4
+    }
+  }, s.sub)))), /*#__PURE__*/React.createElement("div", {
     className: "card"
   }, /*#__PURE__*/React.createElement("div", {
     style: {

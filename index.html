@@ -66,6 +66,24 @@ async function loadProfileNames() {
   }
 }
 
+// ── Fixed bills (recurring, auto-applied each month) ────────────────────────
+function getFixedBillsKey(profile) {
+  return `ft:${profile}:fixedbills`;
+}
+async function storeFixedBills(profile, data) {
+  try {
+    localStorage.setItem(getFixedBillsKey(profile), JSON.stringify(data));
+  } catch {}
+}
+async function loadFixedBills(profile) {
+  try {
+    const r = localStorage.getItem(getFixedBillsKey(profile));
+    return r ? JSON.parse(r) : [];
+  } catch {
+    return [];
+  }
+}
+
 // ── Yearly savings (not per-month) ────────────────────────────────────────
 function getSavingsKey(profile, year) {
   return `ft:${profile}:savings:${year}`;
@@ -209,6 +227,14 @@ function App() {
   });
   const [editSavingsIdx, setEditSavingsIdx] = useState(null);
   const [yearSavings, setYearSavings] = useState([]);
+  const [fixedBills, setFixedBills] = useState([]);
+  const [showFixedModal, setShowFixedModal] = useState(false);
+  const [fixedForm, setFixedForm] = useState({
+    label: "",
+    amount: "",
+    due: ""
+  });
+  const [editFixedIdx, setEditFixedIdx] = useState(null);
   const [showCopyModal, setShowCopyModal] = useState(false);
   const [copyTargets, setCopyTargets] = useState([]);
   const [copyWhat, setCopyWhat] = useState({
@@ -299,6 +325,8 @@ function App() {
       setAllData(loaded);
       const svgs = await loadSavings(0, today.getFullYear());
       setYearSavings(svgs);
+      const fb = await loadFixedBills(0);
+      setFixedBills(fb);
       setReady(true);
     })();
   }, []);
@@ -315,6 +343,8 @@ function App() {
     setAllData(loaded);
     const svgs = await loadSavings(idx, year);
     setYearSavings(svgs);
+    const fb = await loadFixedBills(idx);
+    setFixedBills(fb);
     setActiveTab("overview");
   }
 
@@ -348,7 +378,10 @@ function App() {
     try {
       return btoa(unescape(encodeURIComponent(JSON.stringify({
         profile,
-        allData
+        allData,
+        yearSavings,
+        savingsYear: year,
+        fixedBills
       }))));
     } catch {
       return "";
@@ -379,6 +412,11 @@ function App() {
         const svYear = parsed.savingsYear ?? year;
         setYearSavings(parsed.yearSavings);
         await storeSavings(savedProfile, svYear, parsed.yearSavings);
+      }
+      // Restore fixed bills if present
+      if (Array.isArray(parsed.fixedBills)) {
+        setFixedBills(parsed.fixedBills);
+        await storeFixedBills(savedProfile, parsed.fixedBills);
       }
       if (savedProfile !== profile) await switchProfile(savedProfile);
       setShowLoadCode(false);
@@ -474,6 +512,74 @@ function App() {
       } : b)
     });
   }
+
+  // ── Fixed Bills CRUD ──────────────────────────────────────────────────────
+  async function saveFixedBill() {
+    if (!fixedForm.label || !fixedForm.amount) return;
+    const items = [...fixedBills];
+    if (editFixedIdx !== null) items[editFixedIdx] = {
+      ...fixedForm
+    };else items.push({
+      ...fixedForm
+    });
+    setFixedBills(items);
+    await storeFixedBills(profile, items);
+    // Apply to current month if not already present
+    await applyFixedBillsToMonth(items, key);
+    setShowFixedModal(false);
+    setFixedForm({
+      label: "",
+      amount: "",
+      due: ""
+    });
+    setEditFixedIdx(null);
+  }
+  async function deleteFixedBill(idx) {
+    const items = fixedBills.filter((_, i) => i !== idx);
+    setFixedBills(items);
+    await storeFixedBills(profile, items);
+  }
+
+  // Apply fixed bills to a month — adds any that aren't already there (matched by label+amount)
+  async function applyFixedBillsToMonth(bills, monthKey) {
+    const existing = allData[monthKey] || {
+      income: [],
+      bills: []
+    };
+    const newBills = [...existing.bills];
+    let added = false;
+    for (const fb of bills) {
+      const alreadyExists = newBills.some(b => b.label === fb.label && String(b.amount) === String(fb.amount) && b._fixed);
+      if (!alreadyExists) {
+        newBills.push({
+          label: fb.label,
+          amount: fb.amount,
+          due: fb.due || "",
+          paid: false,
+          _fixed: true
+        });
+        added = true;
+      }
+    }
+    if (added) {
+      const nd = {
+        ...existing,
+        bills: newBills
+      };
+      const updated = {
+        ...allData,
+        [monthKey]: nd
+      };
+      setAllData(updated);
+      await storeMonth(monthKey, nd);
+    }
+  }
+
+  // When month/year changes, auto-apply fixed bills to that month
+  useEffect(() => {
+    if (!ready || !fixedBills.length) return;
+    applyFixedBillsToMonth(fixedBills, getKey(profile, year, month));
+  }, [month, year, profile, ready]);
 
   // Savings — year-wide, not per month
   async function saveSavings() {
@@ -972,7 +1078,7 @@ function App() {
       display: "flex",
       gap: 4
     }
-  }, ["overview", "income", "bills", "savings"].map(t => /*#__PURE__*/React.createElement("button", {
+  }, ["overview", "income", "bills", "savings", "fixed bills"].map(t => /*#__PURE__*/React.createElement("button", {
     key: t,
     className: `tab-btn ${activeTab === t ? "active" : ""}`,
     onClick: () => setActiveTab(t)
@@ -2143,7 +2249,164 @@ function App() {
     style: {
       opacity: loadCodeText.trim() ? 1 : .4
     }
-  }, "Restore \u2192")))), showSavingsModal && /*#__PURE__*/React.createElement("div", {
+  }, "Restore \u2192")))), activeTab === "fixed bills" && /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 16
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "card"
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 6
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "stat-label"
+  }, "Recurring Bills"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 26,
+      color: "#e07070"
+    }
+  }, formatCurrency(fixedBills.reduce((s, b) => s + (parseFloat(b.amount) || 0), 0)), " ", /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 16,
+      color: "#555"
+    }
+  }, "/ month"))), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontFamily: "'DM Mono',monospace",
+      fontSize: 12,
+      color: "#555",
+      marginBottom: 20,
+      lineHeight: 1.6
+    }
+  }, "These bills automatically appear in every month's bills tab, unpaid, ready to check off."), fixedBills.length === 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: "center",
+      padding: "30px 0",
+      color: "#444",
+      fontFamily: "'DM Mono',monospace",
+      fontSize: 13
+    }
+  }, "No recurring bills set up yet"), fixedBills.map((b, i) => /*#__PURE__*/React.createElement("div", {
+    key: i,
+    className: "row-item",
+    style: {
+      justifyContent: "space-between"
+    }
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 14
+    }
+  }, b.label), b.due && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: "'DM Mono',monospace",
+      fontSize: 11,
+      color: "#555"
+    }
+  }, "Due: day ", b.due, " of month")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontFamily: "'DM Mono',monospace",
+      fontSize: 14,
+      color: "#e07070"
+    }
+  }, formatCurrency(parseFloat(b.amount))), /*#__PURE__*/React.createElement("button", {
+    className: "icon-btn",
+    onClick: () => {
+      setFixedForm(b);
+      setEditFixedIdx(i);
+      setShowFixedModal(true);
+    }
+  }, "\u270F\uFE0F"), /*#__PURE__*/React.createElement("button", {
+    className: "icon-btn danger",
+    onClick: () => deleteFixedBill(i)
+  }, "\uD83D\uDDD1")))), /*#__PURE__*/React.createElement("button", {
+    className: "add-btn",
+    onClick: () => {
+      setFixedForm({
+        label: "",
+        amount: "",
+        due: ""
+      });
+      setEditFixedIdx(null);
+      setShowFixedModal(true);
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 18
+    }
+  }, "+"), " Add Recurring Bill"))), showFixedModal && /*#__PURE__*/React.createElement("div", {
+    className: "overlay",
+    onClick: () => setShowFixedModal(false)
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "modal",
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("h2", {
+    style: {
+      fontSize: 20,
+      fontWeight: 400,
+      marginBottom: 6
+    }
+  }, editFixedIdx !== null ? "Edit" : "Add", " Recurring Bill"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontFamily: "'DM Mono',monospace",
+      fontSize: 11,
+      color: "#555",
+      marginBottom: 16,
+      lineHeight: 1.6
+    }
+  }, "This bill will automatically appear every month, unpaid, ready to check off."), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 14
+    }
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", null, "Bill Name"), /*#__PURE__*/React.createElement("input", {
+    placeholder: "e.g. Rent, Internet, Utilities",
+    value: fixedForm.label,
+    onChange: e => setFixedForm(f => ({
+      ...f,
+      label: e.target.value
+    }))
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", null, "Amount ($)"), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    placeholder: "0.00",
+    value: fixedForm.amount,
+    onChange: e => setFixedForm(f => ({
+      ...f,
+      amount: e.target.value
+    }))
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", null, "Due Day of Month \u2014 optional (e.g. 1, 15)"), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    placeholder: "e.g. 1",
+    min: "1",
+    max: "31",
+    value: fixedForm.due,
+    onChange: e => setFixedForm(f => ({
+      ...f,
+      due: e.target.value
+    }))
+  }))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 10,
+      marginTop: 22,
+      justifyContent: "flex-end"
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "btn-cancel",
+    onClick: () => setShowFixedModal(false)
+  }, "Cancel"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-save",
+    onClick: saveFixedBill
+  }, "Save")))), showSavingsModal && /*#__PURE__*/React.createElement("div", {
     className: "overlay",
     onClick: () => setShowSavingsModal(false)
   }, /*#__PURE__*/React.createElement("div", {
